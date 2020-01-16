@@ -11,5 +11,6 @@ export default {
   config: state => state.config,
   configLoaded: state => state.configLoaded,
   mapLoaded: state => state.mapLoaded,
-  map: state => state.map
+  map: state => state.map,
+  gisFactory: state => state.gisFactory
 }

@@ -10,5 +10,7 @@ export default {
   // 地图是否加载成功
   mapLoaded: false,
   // 地图对象
-  map: null
+  map: null,
+  // gis工具类
+  gisFactory: null
 }

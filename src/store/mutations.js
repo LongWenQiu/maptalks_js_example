@@ -10,5 +10,8 @@ export default {
   },
   setMap (state, data) {
     state.map = data
+  },
+  setGisFactory (state, data) {
+    state.gisFactory = data
   }
 }

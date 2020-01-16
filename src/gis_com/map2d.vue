@@ -49,13 +49,18 @@ export default {
       }
       this.$store.commit('setMap', _map)
       this.$store.commit('setMapLoaded', true)
+      // 注册地图类方法
       this.resolve_gis_command()
     },
     resolve_gis_command () {
       const factorySet = new CommonFactory({map: this.map.getInstance()})
-      window.factorySet = factorySet
-      const ss = factorySet.getComponent('LayerUtils')
-      console.log(ss)
+      let comID = factorySet.componentsID
+      // let gisFactory = {}
+      window.gisFactory = {}
+      for (let i = 0; i < comID.length; i++) {
+        window.gisFactory[comID[i]] = factorySet.getComponent(comID[i])
+      }
+      // this.$store.commit('setGisFactory', factorySet.getComponent('SimpleRenderUtils'))
     }
   },
   watch: {
@@ -64,9 +69,9 @@ export default {
     }
   },
   mounted () {
-    this.$nextTick(() => {
-      this.configLoaded && this.initMap()
-    })
+    // this.$nextTick(() => {
+    //   this.configLoaded && this.initMap()
+    // })
   }
 }
 </script>
