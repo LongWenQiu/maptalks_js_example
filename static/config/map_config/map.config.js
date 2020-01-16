@@ -11,23 +11,10 @@
     spatialReference: {
       projection: 'EPSG:4326'
     },
-    zoomControl: {
-      position: {
-        bottom: 70,
-        left: 10
-      },
-      slider: false,
-      zoomLevel: false
-    },
-    scaleControl: {
-      position: {
-        bottom: 40,
-        left: 10
-      },
-      maxWidth: 50,
-      metric: true,
-      imperial: false
-    }
+    zoomControl: false, // 设置倾斜于旋转
+    scaleControl: false,
+    dragPitch: false,
+    dragRotate: false
   }
   var baseLayers = [
     {

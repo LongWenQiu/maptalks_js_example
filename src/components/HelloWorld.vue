@@ -1,27 +1,33 @@
 <template>
   <div class="container">
-    <map-main></map-main>
+    <map2d></map2d>
   </div>
 </template>
 
 <script>
 import { mapGetters } from 'vuex'
-import MapMain from '@/gis_com/map-main'
+import Map2d from '@/gis_com/map2d'
 export default {
   name: 'HelloWorld',
   components: {
-    MapMain
+    Map2d
   },
   computed: {
-    ...mapGetters(['config'])
+    ...mapGetters(['mapLoaded', 'config', 'map'])
   },
   data () {
     return {
       msg: 'Welcome to Your Vue.js App'
     }
   },
+  watch: {
+    mapLoaded () {}
+  },
+  methods: {
+    initMap () {}
+  },
   mounted () {
-    console.log('res', this.config)
+    // console.log('res', this.config)
   }
 }
 </script>
