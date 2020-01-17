@@ -28,7 +28,8 @@ export default {
   methods: {
     initMap () {
       console.log('GIS工厂类', this.gisFactory)
-      this.gisFactory.SimpleRenderUtils.point()
+      // 添加模拟数据
+      // this.gisFactory.SimpleRenderUtils.point()
     }
   },
   mounted () {

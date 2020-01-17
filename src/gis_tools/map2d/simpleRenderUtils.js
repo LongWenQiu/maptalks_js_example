@@ -9,7 +9,8 @@ export default class SimpleRenderUtils extends utilsBase {
     this.map = opts.map
   }
   point () {
-    const pointArr = MockyData.CreatPoint([113, 24], 100)
+    const pointArr = MockyData.mocky_Point([113, 24], 100)
+    console.log(pointArr)
     this.addPoints('point_layer', pointArr, {x: 'longitude', y: 'latitude'})
   }
   // 加点
