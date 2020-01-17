@@ -13,7 +13,7 @@ export default {
     Map2d
   },
   computed: {
-    ...mapGetters(['mapLoaded', 'config', 'map', 'gis_factory'])
+    ...mapGetters(['mapLoaded', 'config', 'map', 'gisFactory'])
   },
   data () {
     return {
@@ -27,7 +27,7 @@ export default {
   },
   methods: {
     initMap () {
-      // console.log('res', this.gis_factory)
+      // console.log('res', this.gisFactory)
     }
   },
   mounted () {

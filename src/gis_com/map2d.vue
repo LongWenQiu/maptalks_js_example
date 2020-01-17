@@ -50,7 +50,8 @@ export default {
       this.$store.commit('setMap', _map)
       this.$store.commit('setMapLoaded', true)
       // 注册地图类方法
-      this.resolve_gis_command()
+      // this.resolve_gis_command()
+      // this.$store.commit('setGisFactory', _map)
     },
     resolve_gis_command () {
       const factorySet = new CommonFactory({map: this.map.getInstance()})
@@ -60,7 +61,8 @@ export default {
       for (let i = 0; i < comID.length; i++) {
         window.gisFactory[comID[i]] = factorySet.getComponent(comID[i])
       }
-      // this.$store.commit('setGisFactory', factorySet.getComponent('SimpleRenderUtils'))
+      console.log(factorySet.getComponent('SimpleRenderUtils'))
+      this.$store.commit('setGisFactory', factorySet)
     }
   },
   watch: {
