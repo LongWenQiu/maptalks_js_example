@@ -12,6 +12,6 @@ export default {
     state.map = data
   },
   setGisFactory (state, data) {
-    state.gisFactory = data
+    state.gisFactory = Object.assign(state.gisFactory, data)
   }
 }

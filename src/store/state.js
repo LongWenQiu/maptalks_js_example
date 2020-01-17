@@ -11,6 +11,6 @@ export default {
   mapLoaded: false,
   // 地图对象
   map: null,
-  // gis工具类
-  gisFactory: null
+  // gis工厂类
+  gisFactory: {}
 }
