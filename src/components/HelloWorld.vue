@@ -27,7 +27,7 @@ export default {
   },
   methods: {
     initMap () {
-      // console.log('res', this.gisFactory)
+      console.log('GIS工厂类', this.gisFactory)
     }
   },
   mounted () {

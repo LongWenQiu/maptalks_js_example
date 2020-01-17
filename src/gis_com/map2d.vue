@@ -35,7 +35,7 @@ export default {
       } else {
         throw new Error('Layer config error')
       }
-      const opts = Object.assign({layers: layers}, initConfig.mapOptions)
+      const opts = Object.assign({ layers: layers }, initConfig.mapOptions)
       let myMap = new maptalks.Map('map', opts)
       _map = {
         // 地图实例
@@ -55,14 +55,13 @@ export default {
       }
     },
     resolve_gis_command () {
-      const factorySet = new CommonFactory({'map': this.map.getInstance()})
+      const factorySet = new CommonFactory({ 'map': this.map.getInstance() })
       let comID = factorySet.componentsID
-      // let gisFactory = {}
-      window.gisFactory = {}
+      let gisFactory = {}
       for (let i = 0; i < comID.length; i++) {
-        window.gisFactory[comID[i]] = factorySet.getComponent(comID[i])
+        gisFactory[comID[i]] = factorySet.getComponent(comID[i])
       }
-      this.$store.commit('setGisFactory', factorySet.components)
+      this.$store.commit('setGisFactory', gisFactory)
     }
   },
   watch: {
