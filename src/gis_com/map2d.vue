@@ -9,7 +9,7 @@ import { mapGetters } from 'vuex'
 let _map = null
 export default {
   computed: {
-    ...mapGetters(['configLoaded', 'config', 'map'])
+    ...mapGetters(['configLoaded', 'config', 'map', 'mapLoaded'])
   },
   methods: {
     initMap () {
@@ -50,24 +50,27 @@ export default {
       this.$store.commit('setMap', _map)
       this.$store.commit('setMapLoaded', true)
       // 注册地图类方法
-      // this.resolve_gis_command()
-      // this.$store.commit('setGisFactory', _map)
+      if (myMap.isLoaded()) {
+        this.resolve_gis_command()
+      }
     },
     resolve_gis_command () {
-      const factorySet = new CommonFactory({map: this.map.getInstance()})
+      const factorySet = new CommonFactory({'map': this.map.getInstance()})
       let comID = factorySet.componentsID
       // let gisFactory = {}
       window.gisFactory = {}
       for (let i = 0; i < comID.length; i++) {
         window.gisFactory[comID[i]] = factorySet.getComponent(comID[i])
       }
-      console.log(factorySet.getComponent('SimpleRenderUtils'))
-      this.$store.commit('setGisFactory', factorySet)
+      this.$store.commit('setGisFactory', factorySet.components)
     }
   },
   watch: {
-    configLoaded () {
-      this.configLoaded && this.initMap()
+    configLoaded: {
+      deep: true,
+      handler: function (newVal) {
+        this.initMap()
+      }
     }
   },
   mounted () {
