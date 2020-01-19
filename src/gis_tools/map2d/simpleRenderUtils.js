@@ -1,17 +1,12 @@
 import * as maptalks from '#/maptalks_js/maptalks.es.js'
 import common from '@/utils/common.es'
 import utilsBase from './utilsBase'
-import MockyData from '@/utils/MockyData'// 模拟数据接口
+
 export default class SimpleRenderUtils extends utilsBase {
   constructor (opts) {
     super(opts)
     this.opts = opts
-    this.map = opts.map
-  }
-  point () {
-    const pointArr = MockyData.mocky_Point([113, 24], 100)
-    console.log(pointArr)
-    this.addPoints('point_layer', pointArr, {x: 'longitude', y: 'latitude'})
+    this.addMapLinstener()
   }
   // 加点
   addPoints (layerId, dataArr, options) {
