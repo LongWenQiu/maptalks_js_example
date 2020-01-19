@@ -21,6 +21,10 @@ export default class factory extends baseFactory {
     const SimpleRenderUtils = new components.SimpleRenderUtils(opts)
     this.components.SimpleRenderUtils = SimpleRenderUtils
     this.CreatComID('SimpleRenderUtils')
+    // 弹窗类
+    const PopupUtils = new components.PopupUtils(opts)
+    this.components.PopupUtils = PopupUtils
+    this.CreatComID('PopupUtils')
   }
   // 创建组件id（记录下id）
   CreatComID (id) {
