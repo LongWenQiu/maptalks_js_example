@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script src="../../static/js/leader-line.min.js"></script>
+    <title>Document</title>
+    <style>
+        #start{
+            height: 40px;
+            width: 40px;
+            position: absolute;
+            top: 30px;
+            left: 40px;
+            background-color: red;
+        }
+        #end{
+            height: 40px;
+            width: 40px;
+            position: absolute;
+            top: 300px;
+            left: 400px;
+            background-color:aqua;
+        }
+    </style>
+</head>
+<body>
+    <div id="start">start</div>
+    <div id="end">end</div>
+</body>
+</html>
+<script>
+/* eslint-disable*/
+let ss = new LeaderLine(
+  document.getElementById('start'),
+  document.getElementById('end')
+)
+</script>

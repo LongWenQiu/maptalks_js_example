@@ -47,6 +47,7 @@ export default {
     },
     processClick (e) {
       const geo = e.geos[0]
+      console.log(geo.getContainerExtent())
       this.gisFactory.PopupUtils.show(geo, [-10, -30], 'popupTest')
     }
   },
