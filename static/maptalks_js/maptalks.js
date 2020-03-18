@@ -1,7 +1,7 @@
 /*!
- * maptalks v0.46.0
+ * maptalks v0.47.0
  * LICENSE : BSD-3-Clause
- * (c) 2016-2019 maptalks.org
+ * (c) 2016-2020 maptalks.org
  */
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
@@ -9,7 +9,7 @@
   (factory((global.maptalks = {})));
 }(this, (function (exports) { 'use strict';
 
-  var version = "0.46.0";
+  var version = "0.47.0";
 
   var INTERNAL_LAYER_PREFIX = '_maptalks__internal_layer_';
   var GEOMETRY_COLLECTION_TYPES = ['MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'];
@@ -280,30 +280,15 @@
   function isArrayHasData(obj) {
     return Array.isArray(obj) && obj.length > 0;
   }
+  var urlPattern = /^([a-z][a-z\d+\-.]*:)?\/\//i;
   function isURL(url) {
-    if (!url) {
-      return false;
-    }
-
-    var head = url.slice(0, 6);
-
-    if (head === 'http:/' || head === 'https:' || head === 'file:/') {
-      return true;
-    }
-
-    return false;
+    return urlPattern.test(url);
   }
   var cssUrlReWithQuote = /^url\((['"])(.+)\1\)$/i;
   var cssUrlRe = /^url\(([^'"].*[^'"])\)$/i;
   function isCssUrl(str) {
     if (!isString(str)) {
       return 0;
-    }
-
-    var head = str.slice(0, 6);
-
-    if (head === 'http:/' || head === 'https:') {
-      return 3;
     }
 
     if (cssUrlRe.test(str)) {
@@ -314,7 +299,7 @@
       return 2;
     }
 
-    return 0;
+    return 3;
   }
   function extractCssUrl(str) {
     var test = isCssUrl(str);
@@ -322,9 +307,7 @@
 
     if (test === 3) {
       return str;
-    }
-
-    if (test === 1) {
+    } else if (test === 1) {
       matches = cssUrlRe.exec(str);
       return matches[1];
     } else if (test === 2) {
@@ -599,7 +582,7 @@
               zoom: stop[0].zoom,
               type: parameters.type,
               property: parameters.property,
-              default: parameters.default,
+              "default": parameters["default"],
               stops: []
             };
           }
@@ -659,7 +642,7 @@
       }
     }
 
-    return parameters.default;
+    return parameters["default"];
   }
 
   function evaluateIntervalFunction(parameters, input) {
@@ -688,7 +671,7 @@
   }
 
   function evaluateIdentityFunction(parameters, input) {
-    return coalesce(input, parameters.default);
+    return coalesce(input, parameters["default"]);
   }
 
   function interpolate$1(input, base, inputLower, inputUpper, outputLower, outputUpper) {
@@ -1079,52 +1062,28 @@
         continue;
       }
 
-      s[props[ii]] = _convertUrlToAbsolute(res);
+      s[props[ii]] = _convertUrl(res);
     }
 
     return s;
   }
 
-  function _convertUrlToAbsolute(res) {
+  function _convertUrl(res) {
     if (isFunctionDefinition(res)) {
       var stops = res.stops;
 
       for (var i = 0; i < stops.length; i++) {
-        stops[i][1] = _convertUrlToAbsolute(stops[i][1]);
+        stops[i][1] = _convertUrl(stops[i][1]);
       }
 
       return res;
     }
 
-    var embed = 'data:';
-
     if (res.slice(0, 4) === 'url(') {
       res = extractCssUrl(res);
     }
 
-    if (!isURL(res) && (res.length <= embed.length || res.substring(0, embed.length) !== embed)) {
-      res = _absolute(location.href, res);
-    }
-
     return res;
-  }
-
-  function _absolute(base, relative) {
-    var stack = base.split('/'),
-        parts = relative.split('/');
-
-    if (relative.slice(0, 1) === 0) {
-      return stack.slice(0, 3).join('/') + relative;
-    } else {
-      stack.pop();
-
-      for (var i = 0; i < parts.length; i++) {
-        if (parts[i] === '.') continue;
-        if (parts[i] === '..') stack.pop();else stack.push(parts[i]);
-      }
-
-      return stack.join('/');
-    }
   }
 
   function isGradient(g) {
@@ -2585,18 +2544,19 @@
         ctx.lineWidth = strokeWidth;
       }
 
-      var strokeColor = style['linePatternFile'] || style['lineColor'] || DEFAULT_STROKE_COLOR;
+      var strokePattern = style['linePatternFile'];
+      var strokeColor = style['lineColor'] || DEFAULT_STROKE_COLOR;
 
       if (testing) {
         ctx.strokeStyle = '#000';
-      } else if (isImageUrl(strokeColor) && resources) {
+      } else if (strokePattern && resources) {
         var patternOffset;
 
         if (style['linePatternDx'] || style['linePatternDy']) {
           patternOffset = [style['linePatternDx'], style['linePatternDy']];
         }
 
-        Canvas._setStrokePattern(ctx, strokeColor, strokeWidth, patternOffset, resources);
+        Canvas._setStrokePattern(ctx, strokePattern, strokeWidth, patternOffset, resources);
 
         style['lineDasharray'] = [];
       } else if (isGradient(strokeColor)) {
@@ -2621,12 +2581,13 @@
         ctx.setLineDash(style['lineDasharray']);
       }
 
-      var fill = style['polygonPatternFile'] || style['polygonFill'] || DEFAULT_FILL_COLOR;
+      var polygonPattern = style['polygonPatternFile'];
+      var fill = style['polygonFill'] || DEFAULT_FILL_COLOR;
 
       if (testing) {
         ctx.fillStyle = '#000';
-      } else if (isImageUrl(fill) && resources) {
-        var fillImgUrl = extractImageUrl(fill);
+      } else if (polygonPattern && resources) {
+        var fillImgUrl = extractImageUrl(polygonPattern);
         var fillTexture = resources.getImage([fillImgUrl, null, null]);
 
         if (!fillTexture) {
@@ -3483,10 +3444,6 @@
 
   var prefix = 'data:image/';
 
-  function isImageUrl(url) {
-    return url.length > prefix.length && url.substring(0, prefix.length) === prefix || isCssUrl(url);
-  }
-
   function extractImageUrl(url) {
     if (url.substring(0, prefix.length) === prefix) {
       return url;
@@ -3510,137 +3467,144 @@
     ctx.strokeStyle = savedCtx.strokeStyle;
   }
 
-  var commonjsGlobal = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+  var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
   function createCommonjsModule(fn, module) {
   	return module = { exports: {} }, fn(module, module.exports), module.exports;
   }
 
   var zousanMin = createCommonjsModule(function (module) {
-    !function (t) {
+    !function (i) {
 
-      function e(t) {
-        if (t) {
-          var e = this;
-          t(function (t) {
-            e.resolve(t);
-          }, function (t) {
-            e.reject(t);
-          });
-        }
-      }
+      var c,
+          s,
+          u = "fulfilled",
+          f = "undefined",
+          a = function () {
+        var e = [],
+            n = 0;
 
-      function n(t, e) {
-        if ("function" == typeof t.y) try {
-          var n = t.y.call(i, e);
-          t.p.resolve(n);
-        } catch (o) {
-          t.p.reject(o);
-        } else t.p.resolve(e);
-      }
-
-      function o(t, e) {
-        if ("function" == typeof t.n) try {
-          var n = t.n.call(i, e);
-          t.p.resolve(n);
-        } catch (o) {
-          t.p.reject(o);
-        } else t.p.reject(e);
-      }
-
-      var r,
-          i,
-          c = "fulfilled",
-          u = "rejected",
-          s = "undefined",
-          f = function () {
-        function e() {
-          for (; n.length - o;) {
+        function o() {
+          for (; e.length - n;) {
             try {
-              n[o]();
-            } catch (e) {
-              t.console && t.console.error(e);
+              e[n]();
+            } catch (t) {
+              i.console && i.console.error(t);
             }
 
-            n[o++] = i, o == r && (n.splice(0, r), o = 0);
+            e[n++] = s, 1024 == n && (e.splice(0, 1024), n = 0);
           }
         }
 
-        var n = [],
-            o = 0,
-            r = 1024,
-            c = function () {
-          if (typeof MutationObserver !== s) {
-            var t = document.createElement("div"),
-                n = new MutationObserver(e);
-            return n.observe(t, {
-              attributes: !0
-            }), function () {
-              t.setAttribute("a", 0);
-            };
-          }
-
-          return typeof setImmediate !== s ? function () {
-            setImmediate(e);
+        var r = function () {
+          if (typeof MutationObserver === f) return typeof process !== f && "function" == typeof process.nextTick ? function () {
+            process.nextTick(o);
+          } : typeof setImmediate !== f ? function () {
+            setImmediate(o);
           } : function () {
-            setTimeout(e, 0);
+            setTimeout(o, 0);
+          };
+          var t = document.createElement("div");
+          return new MutationObserver(o).observe(t, {
+            attributes: !0
+          }), function () {
+            t.setAttribute("a", 0);
           };
         }();
 
         return function (t) {
-          n.push(t), n.length - o == 1 && c();
+          e.push(t), e.length - n == 1 && r();
         };
       }();
 
-      e.prototype = {
-        resolve: function resolve(t) {
-          if (this.state === r) {
-            if (t === this) return this.reject(new TypeError("Attempt to resolve promise with self"));
-            var e = this;
-            if (t && ("function" == typeof t || "object" == typeof t)) try {
-              var o = !0,
-                  i = t.then;
-              if ("function" == typeof i) return void i.call(t, function (t) {
-                o && (o = !1, e.resolve(t));
+      function l(t) {
+        if (!(this instanceof l)) throw new TypeError("Zousan must be created with the new keyword");
+
+        if ("function" == typeof t) {
+          var e = this;
+
+          try {
+            t(function (t) {
+              e.resolve(t);
+            }, function (t) {
+              e.reject(t);
+            });
+          } catch (t) {
+            e.reject(t);
+          }
+        } else if (0 < arguments.length) throw new TypeError("Zousan resolver " + t + " is not a function");
+      }
+
+      function h(e, t) {
+        if ("function" == typeof e.y) try {
+          var n = e.y.call(s, t);
+          e.p.resolve(n);
+        } catch (t) {
+          e.p.reject(t);
+        } else e.p.resolve(t);
+      }
+
+      function v(e, t) {
+        if ("function" == typeof e.n) try {
+          var n = e.n.call(s, t);
+          e.p.resolve(n);
+        } catch (t) {
+          e.p.reject(t);
+        } else e.p.reject(t);
+      }
+
+      l.prototype = {
+        resolve: function resolve(n) {
+          if (this.state === c) {
+            if (n === this) return this.reject(new TypeError("Attempt to resolve promise with self"));
+            var o = this;
+            if (n && ("function" == typeof n || "object" == typeof n)) try {
+              var e = !0,
+                  t = n.then;
+              if ("function" == typeof t) return void t.call(n, function (t) {
+                e && (e = !1, o.resolve(t));
               }, function (t) {
-                o && (o = !1, e.reject(t));
+                e && (e = !1, o.reject(t));
               });
-            } catch (u) {
-              return void (o && this.reject(u));
+            } catch (t) {
+              return void (e && this.reject(t));
             }
-            this.state = c, this.v = t, e.c && f(function () {
-              for (var o = 0, r = e.c.length; r > o; o++) {
-                n(e.c[o], t);
+            this.state = u, this.v = n, o.c && a(function () {
+              for (var t = 0, e = o.c.length; t < e; t++) {
+                h(o.c[t], n);
               }
             });
           }
         },
         reject: function reject(n) {
-          if (this.state === r) {
-            this.state = u, this.v = n;
-            var i = this.c;
-            i ? f(function () {
-              for (var t = 0, e = i.length; e > t; t++) {
-                o(i[t], n);
+          if (this.state === c) {
+            var t = this;
+            this.state = "rejected", this.v = n;
+            var o = this.c;
+            a(o ? function () {
+              for (var t = 0, e = o.length; t < e; t++) {
+                v(o[t], n);
               }
-            }) : !e.suppressUncaughtRejectionError && t.console && t.console.log("You upset Zousan. Please catch rejections: ", n, n ? n.stack : null);
-          }
-        },
-        then: function then(t, i) {
-          var u = new e(),
-              s = {
-            y: t,
-            n: i,
-            p: u
-          };
-          if (this.state === r) this.c ? this.c.push(s) : this.c = [s];else {
-            var l = this.state,
-                a = this.v;
-            f(function () {
-              l === c ? n(s, a) : o(s, a);
+            } : function () {
+              t.handled || !l.suppressUncaughtRejectionError && i.console && l.warn("You upset Zousan. Please catch rejections: ", n, n ? n.stack : null);
             });
           }
-          return u;
+        },
+        then: function then(t, e) {
+          var n = new l(),
+              o = {
+            y: t,
+            n: e,
+            p: n
+          };
+          if (this.state === c) this.c ? this.c.push(o) : this.c = [o];else {
+            var r = this.state,
+                i = this.v;
+            this.handled = !0, a(function () {
+              r === u ? h(o, i) : v(o, i);
+            });
+          }
+          return n;
         },
         "catch": function _catch(t) {
           return this.then(null, t);
@@ -3648,42 +3612,46 @@
         "finally": function _finally(t) {
           return this.then(t, t);
         },
-        timeout: function timeout(t, n) {
-          n = n || "Timeout";
-          var o = this;
-          return new e(function (e, r) {
+        timeout: function timeout(t, o) {
+          o = o || "Timeout";
+          var r = this;
+          return new l(function (e, n) {
             setTimeout(function () {
-              r(Error(n));
-            }, t), o.then(function (t) {
+              n(Error(o));
+            }, t), r.then(function (t) {
               e(t);
             }, function (t) {
-              r(t);
+              n(t);
             });
           });
         }
-      }, e.resolve = function (t) {
-        var n = new e();
-        return n.resolve(t), n;
-      }, e.reject = function (t) {
-        var n = new e();
-        return n.reject(t), n;
-      }, e.all = function (t) {
-        function n(n, c) {
-          n && "function" == typeof n.then || (n = e.resolve(n)), n.then(function (e) {
-            o[c] = e, r++, r == t.length && i.resolve(o);
+      }, l.resolve = function (t) {
+        var e = new l();
+        return e.resolve(t), e;
+      }, l.reject = function (t) {
+        var e = new l();
+        return e.c = [], e.reject(t), e;
+      }, l.all = function (n) {
+        var o = [],
+            r = 0,
+            i = new l();
+
+        function t(t, e) {
+          t && "function" == typeof t.then || (t = l.resolve(t)), t.then(function (t) {
+            o[e] = t, ++r == n.length && i.resolve(o);
           }, function (t) {
             i.reject(t);
           });
         }
 
-        for (var o = [], r = 0, i = new e(), c = 0; c < t.length; c++) {
-          n(t[c], c);
+        for (var e = 0; e < n.length; e++) {
+          t(n[e], e);
         }
 
-        return t.length || i.resolve(o), i;
-      }, module.exports && (module.exports = e), t.define && t.define.amd && t.define([], function () {
-        return e;
-      }), t.Zousan = e, e.soon = f;
+        return n.length || i.resolve(o), i;
+      }, l.warn = console.warn, module.exports && (module.exports = l), i.define && i.define.amd && i.define([], function () {
+        return l;
+      }), (i.Zousan = l).soon = a;
     }("undefined" != typeof commonjsGlobal ? commonjsGlobal : commonjsGlobal);
   });
 
@@ -5462,7 +5430,7 @@
     }
 
     var bear360;
-    if (options.final) bear360 = calculateRhumbBearing(end, start);else bear360 = calculateRhumbBearing(start, end);
+    if (options["final"]) bear360 = calculateRhumbBearing(end, start);else bear360 = calculateRhumbBearing(start, end);
     var bear180 = bear360 > 180 ? -(360 - bear360) : bear360;
     return bear180;
   }
@@ -9970,12 +9938,12 @@
     _proto.getExtent = function getExtent() {
       var prjExt = this._getPrjExtent();
 
-      if (prjExt) {
-        var p = this._getProjection();
+      var projection = this._getProjection();
 
-        var min = p.unproject(new Coordinate(prjExt['xmin'], prjExt['ymin'])),
-            max = p.unproject(new Coordinate(prjExt['xmax'], prjExt['ymax']));
-        return new Extent(min, max, this._getProjection());
+      if (prjExt && projection) {
+        var min = projection.unproject(new Coordinate(prjExt['xmin'], prjExt['ymin'])),
+            max = projection.unproject(new Coordinate(prjExt['xmax'], prjExt['ymax']));
+        return new Extent(min, max, projection);
       } else {
         return this._computeExtent(this._getMeasurer());
       }
@@ -10311,8 +10279,6 @@
       this._layer = layer;
 
       this._clearCache();
-
-      this._clearProjection();
     };
 
     _proto._prepareSymbol = function _prepareSymbol(symbol) {
@@ -10445,11 +10411,11 @@
     _proto._verifyProjection = function _verifyProjection() {
       var projection = this._getProjection();
 
-      if (this._projCode && (!projection || this._projCode !== projection.code)) {
+      if (this._projCode && projection && this._projCode !== projection.code) {
         this._clearProjection();
       }
 
-      this._projCode = projection ? projection.code : null;
+      this._projCode = projection ? projection.code : this._projCode;
     };
 
     _proto._getExternalResources = function _getExternalResources() {
@@ -10649,7 +10615,10 @@
     'cssFilter': null,
     'forceRenderOnMoving': false,
     'forceRenderOnZooming': false,
-    'forceRenderOnRotating': false
+    'forceRenderOnRotating': false,
+    'hitDetect': function () {
+      return !Browser$1.mobile;
+    }()
   };
 
   var Layer = function (_JSONAble) {
@@ -10920,6 +10889,8 @@
         throw new Error('Mask for a layer must be a marker with vector marker symbol or a Polygon(MultiPolygon).');
       }
 
+      mask._bindLayer(this);
+
       if (mask.type === 'Point') {
         mask.updateSymbol({
           'markerLineColor': 'rgba(0, 0, 0, 0)',
@@ -10931,8 +10902,6 @@
           'polygonOpacity': 0
         });
       }
-
-      mask._bindLayer(this);
 
       this._mask = mask;
       this.options.mask = mask.toJSON();
@@ -11121,7 +11090,7 @@
   };
 
   var options$2 = {
-    'maxVisualPitch': 60,
+    'maxVisualPitch': 70,
     'maxPitch': 80,
     'centerCross': false,
     'zoomInCenter': false,
@@ -11148,7 +11117,8 @@
     'fixCenterOnResize': false,
     'checkSize': true,
     'checkSizeInterval': 1000,
-    'renderer': 'canvas'
+    'renderer': 'canvas',
+    'cascadePitches': [10, 60]
   };
 
   var Map$1 = function (_Handlerable) {
@@ -11176,7 +11146,7 @@
       delete opts['layers'];
       _this = _Handlerable.call(this, opts) || this;
       _this.VERSION = Map.VERSION;
-      Object.defineProperty(_assertThisInitialized(_assertThisInitialized(_this)), 'id', {
+      Object.defineProperty(_assertThisInitialized(_this), 'id', {
         value: UID(),
         writable: false
       });
@@ -11365,10 +11335,16 @@
       return new PointExtent(0, this.height - visualHeight, this.width, this.height);
     };
 
-    _proto._getVisualHeight = function _getVisualHeight(maxVisualPitch) {
-      var pitch = this.getPitch();
-      var visualDistance = this.height / 2 * Math.tan(maxVisualPitch * Math.PI / 180);
-      return this.height / 2 + visualDistance * Math.tan((90 - pitch) * Math.PI / 180);
+    _proto._getVisualHeight = function _getVisualHeight(visualPitch) {
+      var pitch = (90 - this.getPitch()) * Math.PI / 180;
+      var fov = this.getFov() * Math.PI / 180;
+      visualPitch *= Math.PI / 180;
+      var cameraToCenter = this.cameraCenterDistance / this.getGLScale();
+      var tanB = Math.tan(fov / 2);
+      var tanP = Math.tan(visualPitch);
+      var visualDistance = cameraToCenter * tanB / (1 / tanP - tanB) / Math.sin(visualPitch);
+      var x = cameraToCenter * (Math.sin(pitch) * visualDistance / (cameraToCenter + Math.cos(pitch) * visualDistance));
+      return this.height / 2 + x;
     };
 
     _proto.getExtent = function getExtent() {
@@ -12125,7 +12101,12 @@
     };
 
     _proto.onMoveStart = function onMoveStart(param) {
-      this._originCenter = this._getPrjCenter();
+      var prjCenter = this._getPrjCenter();
+
+      if (!this._originCenter || this._verifyExtent(prjCenter)) {
+        this._originCenter = prjCenter;
+      }
+
       this._moving = true;
 
       this._trySetCursor('move');
@@ -12146,10 +12127,6 @@
 
       if (!this._verifyExtent(this._getPrjCenter())) {
         var moveTo = this._originCenter;
-
-        if (!this._verifyExtent(moveTo)) {
-          moveTo = this.getMaxExtent().getCenter();
-        }
 
         this._panTo(moveTo);
       }
@@ -13377,7 +13354,7 @@
       var _this;
 
       _this = _Handler.call(this, target) || this;
-      _this._thisScrollZoom = _this._scrollZoom.bind(_assertThisInitialized(_assertThisInitialized(_this)));
+      _this._thisScrollZoom = _this._scrollZoom.bind(_assertThisInitialized(_this));
       _this._wheelZoomRate = wheelZoomRate;
       _this._defaultZoomRate = defaultZoomRate;
       _this._delta = 0;
@@ -13731,11 +13708,11 @@
   Map$1.addOnLoadHook('addHandler', 'touchGesture', MapTouchZoomHandler);
 
   var Easing = {
-    in: function _in(t) {
+    "in": function _in(t) {
       return Math.pow(t, 2);
     },
     out: function out(t) {
-      return 1 - Easing.in(1 - t);
+      return 1 - Easing["in"](1 - t);
     },
     inAndOut: function inAndOut(t) {
       return 3 * t * t - 2 * t * t * t;
@@ -14266,7 +14243,7 @@
 
       {
         module.exports = simplify;
-        module.exports.default = simplify;
+        module.exports["default"] = simplify;
       }
     })();
   });
@@ -14529,15 +14506,9 @@
     };
 
     _proto._getPrjCoordinates = function _getPrjCoordinates() {
-      var projection = this._getProjection();
-
-      if (!projection) {
-        return null;
-      }
-
       this._verifyProjection();
 
-      if (!this._prjCoords) {
+      if (!this._prjCoords && this._getProjection()) {
         this._prjCoords = this._projectCoords(this._coordinates);
       }
 
@@ -14786,6 +14757,11 @@
       this.onShapeChanged();
     };
 
+    _proto._setPrjCoordinates = function _setPrjCoordinates(prjCoords) {
+      this._prjCoords = prjCoords;
+      this.onShapeChanged();
+    };
+
     _proto._cleanRing = function _cleanRing(ring) {
       for (var i = ring.length - 1; i >= 0; i--) {
         if (!ring[i]) {
@@ -14839,15 +14815,9 @@
         return this._getPrjCoordinates();
       }
 
-      var projection = this._getProjection();
-
-      if (!projection) {
-        return null;
-      }
-
       this._verifyProjection();
 
-      if (!this._prjShell) {
+      if (this._getProjection() && !this._prjShell) {
         this._prjShell = this._projectCoords(this.getShell());
       }
 
@@ -14857,13 +14827,9 @@
     _proto._getPrjHoles = function _getPrjHoles() {
       var projection = this._getProjection();
 
-      if (!projection) {
-        return null;
-      }
-
       this._verifyProjection();
 
-      if (!this._prjHoles) {
+      if (projection && !this._prjHoles) {
         this._prjHoles = this._projectCoords(this.getHoles());
       }
 
@@ -14988,13 +14954,9 @@
       _proto._getPrjCoordinates = function _getPrjCoordinates() {
         var projection = this._getProjection();
 
-        if (!projection) {
-          return null;
-        }
-
         this._verifyProjection();
 
-        if (!this._pcenter) {
+        if (!this._pcenter && projection) {
           if (this._coordinates) {
             this._pcenter = projection.project(this._coordinates);
           }
@@ -16469,13 +16431,9 @@
     _proto._getPrjCoordinates = function _getPrjCoordinates() {
       var projection = this._getProjection();
 
-      if (!projection) {
-        return null;
-      }
-
       this._verifyProjection();
 
-      if (!this._pnw) {
+      if (!this._pnw && projection) {
         if (this._coordinates) {
           this._pnw = projection.project(this._coordinates);
         }
@@ -18680,7 +18638,7 @@
       _this._checkMode();
 
       _this._events = {
-        'click': _this._firstClickHandler,
+        'click': _this._clickHandler,
         'mousemove': _this._mouseMoveHandler,
         'dblclick': _this._doubleClickHandler,
         'mousedown': _this._mouseDownHandler,
@@ -18813,7 +18771,7 @@
 
       var coords = this._clickCoords.slice(0, --this._historyPointer);
 
-      registerMode.update(coords, this._geometry);
+      registerMode.update(this.getMap().getProjection(), coords, this._geometry);
       return this;
     };
 
@@ -18828,7 +18786,7 @@
 
       var coords = this._clickCoords.slice(0, ++this._historyPointer);
 
-      registerMode.update(coords, this._geometry);
+      registerMode.update(this.getMap().getProjection(), coords, this._geometry);
       return this;
     };
 
@@ -18922,31 +18880,29 @@
       this.endDraw(event);
     };
 
-    _proto._firstClickHandler = function _firstClickHandler(event) {
+    _proto._clickHandler = function _clickHandler(event) {
       var registerMode = this._getRegisterMode();
-
-      var coordinate = event['coordinate'];
 
       if (!this._geometry) {
         this._createGeometry(event);
       } else {
+        var prjCoord = this.getMap()._pointToPrj(event['point2d']);
+
         if (!isNil(this._historyPointer)) {
           this._clickCoords = this._clickCoords.slice(0, this._historyPointer);
         }
 
-        this._clickCoords.push(coordinate);
+        this._clickCoords.push(prjCoord);
 
         this._historyPointer = this._clickCoords.length;
         event.drawTool = this;
-
-        if (registerMode['clickLimit'] && registerMode['clickLimit'] === this._historyPointer) {
-          registerMode['update']([coordinate], this._geometry, event);
-          this.endDraw(event);
-        } else {
-          registerMode['update'](this._clickCoords, this._geometry, event);
-        }
+        registerMode['update'](this.getMap().getProjection(), this._clickCoords, this._geometry, event);
 
         this._fireEvent('drawvertex', event);
+
+        if (registerMode['clickLimit'] && registerMode['clickLimit'] === this._historyPointer) {
+          this.endDraw(event);
+        }
       }
     };
 
@@ -18955,13 +18911,14 @@
 
       var registerMode = this._getRegisterMode();
 
-      var coordinate = event['coordinate'];
+      var prjCoord = this.getMap()._pointToPrj(event['point2d']);
+
       var symbol = this.getSymbol();
 
       if (!this._geometry) {
-        this._clickCoords = [coordinate];
+        this._clickCoords = [prjCoord];
         event.drawTool = this;
-        this._geometry = registerMode['create'](this._clickCoords, event);
+        this._geometry = registerMode['create'](this.getMap().getProjection(), this._clickCoords, event);
 
         if (symbol && mode !== 'point') {
           this._geometry.setSymbol(symbol);
@@ -18981,7 +18938,6 @@
 
     _proto._mouseMoveHandler = function _mouseMoveHandler(event) {
       var map = this.getMap();
-      var coordinate = event['coordinate'];
 
       if (!this._geometry || !map || map.isInteracting()) {
         return;
@@ -18993,6 +18949,9 @@
         return;
       }
 
+      var prjCoord = this.getMap()._pointToPrj(event['point2d']);
+
+      var projection = map.getProjection();
       event.drawTool = this;
 
       var registerMode = this._getRegisterMode();
@@ -19000,13 +18959,13 @@
       if (this._shouldRecordHistory(registerMode.action)) {
         var path = this._clickCoords.slice(0, this._historyPointer);
 
-        if (path && path.length > 0 && coordinate.equals(path[path.length - 1])) {
+        if (path && path.length > 0 && prjCoord.equals(path[path.length - 1])) {
           return;
         }
 
-        registerMode['update'](path.concat([coordinate]), this._geometry, event);
+        registerMode['update'](projection, path.concat([prjCoord]), this._geometry, event);
       } else {
-        registerMode['update']([coordinate], this._geometry, event);
+        registerMode['update'](projection, prjCoord, this._geometry, event);
       }
 
       this._fireEvent('mousemove', event);
@@ -19031,6 +18990,7 @@
         return;
       }
 
+      var projection = this.getMap().getProjection();
       var path = [clickCoords[0]];
 
       for (var i = 1, len = clickCoords.length; i < len; i++) {
@@ -19044,7 +19004,7 @@
       }
 
       event.drawTool = this;
-      registerMode['update'](path, this._geometry, event);
+      registerMode['update'](projection, path, this._geometry, event);
       this.endDraw(event);
     };
 
@@ -19135,7 +19095,7 @@
       if (this._geometry) {
         param['geometry'] = this._getRegisterMode()['generate'](this._geometry, {
           drawTool: this
-        }).copy();
+        });
       }
 
       MapTool.prototype._fireEvent.call(this, eventName, param);
@@ -19815,6 +19775,16 @@
       }
 
       offset = new Point(offset);
+      var containerExtent = this.getContainerExtent();
+      var ymin = containerExtent.ymin;
+
+      if (ymin > 0 && offset.y > 30) {
+        var y = offset.y;
+        offset.y = 30;
+        offset.x = offset.x * 30 / y;
+        console.warn('offset is limited to panBy when pitch is above maxPitch');
+      }
+
       this.onMoveStart();
 
       if (typeof options['animation'] === 'undefined' || options['animation']) {
@@ -20546,6 +20516,25 @@
     out[15] = 1;
     return out;
   }
+  function copy(out, a) {
+    out[0] = a[0];
+    out[1] = a[1];
+    out[2] = a[2];
+    out[3] = a[3];
+    out[4] = a[4];
+    out[5] = a[5];
+    out[6] = a[6];
+    out[7] = a[7];
+    out[8] = a[8];
+    out[9] = a[9];
+    out[10] = a[10];
+    out[11] = a[11];
+    out[12] = a[12];
+    out[13] = a[13];
+    out[14] = a[14];
+    out[15] = a[15];
+    return out;
+  }
 
   function set$2(out, x, y, z) {
     out[0] = x;
@@ -20606,6 +20595,34 @@
     out[1] = az * bx - ax * bz;
     out[2] = ax * by - ay * bx;
     return out;
+  }
+  function distance(a, b) {
+    var x = b[0] - a[0];
+    var y = b[1] - a[1];
+    var z = b[2] - a[2];
+    return Math.hypot ? Math.hypot(x, y, z) : hypot(x, y, z);
+  }
+  function transformMat4(out, a, m) {
+    var x = a[0],
+        y = a[1],
+        z = a[2];
+    var w = m[3] * x + m[7] * y + m[11] * z + m[15];
+    w = w || 1.0;
+    out[0] = (m[0] * x + m[4] * y + m[8] * z + m[12]) / w;
+    out[1] = (m[1] * x + m[5] * y + m[9] * z + m[13]) / w;
+    out[2] = (m[2] * x + m[6] * y + m[10] * z + m[14]) / w;
+    return out;
+  }
+
+  function hypot() {
+    var y = 0;
+    var i = arguments.length;
+
+    while (i--) {
+      y += arguments[i] * arguments[i];
+    }
+
+    return Math.sqrt(y);
   }
 
   function applyMatrix(out, v, e) {
@@ -20980,13 +20997,9 @@
       };
     }(),
     _calcMatrices: function () {
-      var m0 = Browser$1.ie9 ? null : createMat4(),
-          m1 = Browser$1.ie9 ? null : createMat4();
+      var m0 = createMat4(),
+          m1 = createMat4();
       return function () {
-        if (Browser$1.ie9) {
-          return;
-        }
-
         delete this._mapRes;
         delete this._mapGlRes;
         delete this._mapExtent2D;
@@ -20995,17 +21008,24 @@
         var w = size.width || 1,
             h = size.height || 1;
         this._glScale = this.getGLScale();
-        var fov = this.getFov() * Math.PI / 180;
-        var maxScale = this.getScale(this.getMinZoom()) / this.getScale(this.getMaxNativeZoom());
-        var farZ = maxScale * h / 2 / this._getFovRatio() * 1.4;
-        var projMatrix = this.projMatrix || createMat4();
-        perspective(projMatrix, fov, w / h, 0.1, farZ);
-        this.projMatrix = projMatrix;
+        var pitch = this.getPitch() * Math.PI / 180;
 
         var worldMatrix = this._getCameraWorldMatrix();
 
+        var fov = this.getFov() * Math.PI / 180;
+
+        var farZ = this._getCameraFar(fov, this.getPitch());
+
+        this.cameraFar = farZ;
+        this.cameraNear = Math.max(this._glScale * this.getResolution(this.getGLZoom()) * Math.cos(pitch), 0.1);
+        var projMatrix = this.projMatrix || createMat4();
+        perspective(projMatrix, fov, w / h, this.cameraNear, farZ);
+        this.projMatrix = projMatrix;
         this.viewMatrix = invert(m0, worldMatrix);
         this.projViewMatrix = multiply(this.projViewMatrix || createMat4(), projMatrix, this.viewMatrix);
+
+        this._calcCascadeMatrixes();
+
         this.projViewMatrixInverse = multiply(this.projViewMatrixInverse || createMat4(), worldMatrix, invert(m1, projMatrix));
         this.domCssMatrix = this._calcDomMatrix();
         this._frustumAltitude = this._calcFrustumAltitude();
@@ -21015,9 +21035,67 @@
         this._mapGlExtent2D = this._get2DExtent(this.getGLZoom());
       };
     }(),
+    _getCameraFar: function _getCameraFar(fov, pitch) {
+      var cameraCenterDistance = this.cameraCenterDistance = distance(this.cameraPosition, this.cameraLookAt);
+      var farZ = cameraCenterDistance;
+
+      if (pitch > 0) {
+        pitch = pitch * Math.PI / 180;
+        var y;
+
+        if (2 / Math.PI - pitch <= fov / 2) {
+          y = 4 * cameraCenterDistance;
+        } else {
+          var tanFov = Math.tan(fov / 2);
+          var tanP = Math.tan(pitch);
+          y = cameraCenterDistance * tanFov / (1 / tanP - tanFov);
+        }
+
+        farZ += y;
+      }
+
+      return farZ + 1.0;
+    },
+    _calcCascadeMatrixes: function () {
+      var projMatrix = createMat4();
+
+      function cal(curPitch, pitch, out) {
+        var w = this.width;
+        var h = this.height;
+        var fov = this.getFov() * Math.PI / 180;
+
+        var farZ = this._getCameraFar(fov, pitch);
+
+        var cameraCenterDistance = this.cameraCenterDistance;
+        farZ = cameraCenterDistance + (farZ - cameraCenterDistance) / Math.cos((90 - pitch) * Math.PI / 180) * Math.cos((90 - curPitch) * Math.PI / 180);
+        perspective(projMatrix, fov, w / h, 0.1, farZ);
+        var viewMatrix = this.viewMatrix;
+        return multiply(out, projMatrix, viewMatrix);
+      }
+
+      return function () {
+        var pitch = this.getPitch();
+        var cascadePitch0 = this.options['cascadePitches'][0];
+        var cascadePitch1 = this.options['cascadePitches'][1];
+        var projViewMatrix0 = this.cascadeFrustumMatrix0 = this.cascadeFrustumMatrix0 || createMat4();
+        var projViewMatrix1 = this.cascadeFrustumMatrix1 = this.cascadeFrustumMatrix1 || createMat4();
+
+        if (pitch > cascadePitch0) {
+          cal.call(this, pitch, cascadePitch0, projViewMatrix0);
+        } else {
+          copy(this.cascadeFrustumMatrix0, this.projViewMatrix);
+        }
+
+        if (pitch > cascadePitch1) {
+          cal.call(this, pitch, cascadePitch1, projViewMatrix1);
+        } else {
+          copy(this.cascadeFrustumMatrix1, this.cascadeFrustumMatrix0);
+        }
+      };
+    }(),
     _calcDomMatrix: function () {
-      var m = Browser$1.ie9 ? null : createMat4(),
-          m1 = Browser$1.ie9 ? null : createMat4(),
+      var m = createMat4(),
+          m1 = createMat4(),
           minusY = [1, -1, 1],
           arr = [0, 0, 0];
       return function () {
@@ -21282,7 +21360,7 @@
 
       _this = _DrawTool.call(this, options) || this;
 
-      _this.on('enable', _this._afterEnable, _assertThisInitialized(_assertThisInitialized(_this))).on('disable', _this._afterDisable, _assertThisInitialized(_assertThisInitialized(_this)));
+      _this.on('enable', _this._afterEnable, _assertThisInitialized(_this)).on('disable', _this._afterDisable, _assertThisInitialized(_this));
 
       _this._measureLayers = [];
       return _this;
@@ -21367,6 +21445,9 @@
 
     _proto._msOnDrawStart = function _msOnDrawStart(param) {
       var map = this.getMap();
+
+      var prjCoord = map._pointToPrj(param['point2d']);
+
       var uid = UID();
       var layerId = 'distancetool_' + uid;
       var markerLayerId = 'distancetool_markers_' + uid;
@@ -21383,11 +21464,17 @@
 
       this._measureLayers.push(this._measureMarkerLayer);
 
-      new Marker(param['coordinate'], {
+      var marker = new Marker(param['coordinate'], {
         'symbol': this.options['vertexSymbol']
       }).addTo(this._measureMarkerLayer);
+
+      marker._setPrjCoordinates(prjCoord);
+
       var content = this.options['language'] === 'zh-CN' ? '起点' : 'start';
       var startLabel = new Label(content, param['coordinate'], this.options['labelOptions']);
+
+      startLabel._setPrjCoordinates(prjCoord);
+
       this._lastVertex = startLabel;
 
       this._measureMarkerLayer.addGeometry(startLabel);
@@ -21406,11 +21493,19 @@
         this._tailLabel = new Label(ms, param['coordinate'], this.options['labelOptions']).addTo(this._measureMarkerLayer);
       }
 
+      var prjCoords = this._geometry._getPrjCoordinates();
+
+      var lastCoord = prjCoords[prjCoords.length - 1];
+
       this._tailMarker.setCoordinates(param['coordinate']);
+
+      this._tailMarker._setPrjCoordinates(lastCoord);
 
       this._tailLabel.setContent(ms);
 
       this._tailLabel.setCoordinates(param['coordinate']);
+
+      this._tailLabel._setPrjCoordinates(lastCoord);
     };
 
     _proto._msGetCoordsToMeasure = function _msGetCoordsToMeasure(param) {
@@ -21418,16 +21513,23 @@
     };
 
     _proto._msOnDrawVertex = function _msOnDrawVertex(param) {
+      var prjCoords = this._geometry._getPrjCoordinates();
+
+      var lastCoord = prjCoords[prjCoords.length - 1];
       var geometry = param['geometry'];
-      new Marker(param['coordinate'], {
+      var marker = new Marker(param['coordinate'], {
         'symbol': this.options['vertexSymbol']
-      }).addTo(this._measureMarkerLayer);
+      });
 
       var length = this._measure(geometry);
 
       var vertexLabel = new Label(length, param['coordinate'], this.options['labelOptions']);
 
-      this._measureMarkerLayer.addGeometry(vertexLabel);
+      this._measureMarkerLayer.addGeometry(vertexLabel, marker);
+
+      vertexLabel._setPrjCoordinates(lastCoord);
+
+      marker._setPrjCoordinates(lastCoord);
 
       this._lastVertex = vertexLabel;
     };
@@ -21441,14 +21543,17 @@
         size = new Size(10, 10);
       }
 
-      this._addClearMarker(this._lastVertex.getCoordinates(), size['width']);
+      this._addClearMarker(this._lastVertex.getCoordinates(), this._lastVertex._getPrjCoordinates(), size['width']);
 
       var geo = param['geometry'].copy();
+
+      geo._setPrjCoordinates(param['geometry']._getPrjCoordinates());
+
       geo.addTo(this._measureLineLayer);
       this._lastMeasure = geo.getLength();
     };
 
-    _proto._addClearMarker = function _addClearMarker(coordinates, dx) {
+    _proto._addClearMarker = function _addClearMarker(coordinates, prjCoord, dx) {
       var symbol = this.options['clearButtonSymbol'];
       var dxSymbol = {
         'markerDx': (symbol['markerDx'] || 0) + dx,
@@ -21480,6 +21585,8 @@
         return false;
       }, this);
       endMarker.addTo(this._measureMarkerLayer);
+
+      endMarker._setPrjCoordinates(prjCoord);
     };
 
     _proto._clearTailMarker = function _clearTailMarker() {
@@ -21521,7 +21628,7 @@
 
       _this = _DistanceTool.call(this, options) || this;
 
-      _this.on('enable', _this._afterEnable, _assertThisInitialized(_assertThisInitialized(_this))).on('disable', _this._afterDisable, _assertThisInitialized(_assertThisInitialized(_this)));
+      _this.on('enable', _this._afterEnable, _assertThisInitialized(_this)).on('disable', _this._afterDisable, _assertThisInitialized(_this));
 
       _this._measureLayers = [];
       return _this;
@@ -21573,9 +21680,13 @@
     };
 
     _proto._msOnDrawVertex = function _msOnDrawVertex(param) {
+      var prjCoord = this.getMap()._pointToPrj(param['point2d']);
+
       var vertexMarker = new Marker(param['coordinate'], {
         'symbol': this.options['vertexSymbol']
       }).addTo(this._measureMarkerLayer);
+
+      vertexMarker._setPrjCoordinates(prjCoord);
 
       this._measure(param['geometry']);
 
@@ -21585,18 +21696,26 @@
     _proto._msOnDrawEnd = function _msOnDrawEnd(param) {
       this._clearTailMarker();
 
+      var prjCoord = this.getMap()._pointToPrj(param['point2d']);
+
       var ms = this._measure(param['geometry']);
 
       var endLabel = new Label(ms, param['coordinate'], this.options['labelOptions']).addTo(this._measureMarkerLayer);
+
+      endLabel._setPrjCoordinates(prjCoord);
+
       var size = endLabel.getSize();
 
       if (!size) {
         size = new Size(10, 10);
       }
 
-      this._addClearMarker(param['coordinate'], size['width']);
+      this._addClearMarker(param['coordinate'], prjCoord, size['width']);
 
       var geo = param['geometry'].copy();
+
+      geo._setPrjCoordinates(param['geometry']._getPrjCoordinates());
+
       geo.addTo(this._measureLineLayer);
       this._lastMeasure = geo.getArea();
     };
@@ -21606,51 +21725,54 @@
 
   AreaTool.mergeOptions(options$i);
 
-  DrawTool.registerMode('circle', {
-    'clickLimit': 2,
-    'action': ['click', 'mousemove', 'click'],
-    'create': function create(coordinate) {
-      return new Circle(coordinate[0], 0);
+  var circleHooks = {
+    'create': function create(projection, prjCoord) {
+      var center = projection.unproject(prjCoord[0]);
+      var circle = new Circle(center, 0);
+
+      circle._setPrjCoordinates(prjCoord[0]);
+
+      return circle;
     },
-    'update': function update(path, geometry) {
+    'update': function update(projection, prjPath, geometry) {
       var map = geometry.getMap();
-      var radius = map.computeLength(geometry.getCenter(), path[path.length - 1]);
+      var prjCoord = Array.isArray(prjPath) ? prjPath[prjPath.length - 1] : prjPath;
+      var nextCoord = projection.unproject(prjCoord);
+      var radius = map.computeLength(geometry.getCenter(), nextCoord);
       geometry.setRadius(radius);
     },
     'generate': function generate(geometry) {
       return geometry;
     }
-  });
-  DrawTool.registerMode('freeHandCircle', {
-    'action': ['mousedown', 'mousemove', 'mouseup'],
-    'create': function create(coordinate) {
-      return new Circle(coordinate[0], 0);
-    },
-    'update': function update(path, geometry) {
-      var map = geometry.getMap();
-      var radius = map.computeLength(geometry.getCenter(), path[path.length - 1]);
-      geometry.setRadius(radius);
-    },
-    'generate': function generate(geometry) {
-      return geometry;
-    }
-  });
-  DrawTool.registerMode('ellipse', {
+  };
+  DrawTool.registerMode('circle', extend({
     'clickLimit': 2,
-    'action': ['click', 'mousemove', 'click'],
-    'create': function create(coordinates) {
-      return new Ellipse(coordinates[0], 0, 0);
+    'action': ['click', 'mousemove', 'click']
+  }, circleHooks));
+  DrawTool.registerMode('freeHandCircle', extend({
+    'action': ['mousedown', 'mousemove', 'mouseup']
+  }, circleHooks));
+  var ellipseHooks = {
+    'create': function create(projection, prjCoord) {
+      var center = projection.unproject(prjCoord[0]);
+      var ellipse = new Ellipse(center, 0, 0);
+
+      ellipse._setPrjCoordinates(prjCoord[0]);
+
+      return ellipse;
     },
-    'update': function update(path, geometry) {
+    'update': function update(projection, prjPath, geometry) {
       var map = geometry.getMap();
       var center = geometry.getCenter();
+      var prjCoord = Array.isArray(prjPath) ? prjPath[prjPath.length - 1] : prjPath;
+      var nextCoord = projection.unproject(prjCoord);
       var rx = map.computeLength(center, new Coordinate({
-        x: path[path.length - 1].x,
+        x: nextCoord.x,
         y: center.y
       }));
       var ry = map.computeLength(center, new Coordinate({
         x: center.x,
-        y: path[path.length - 1].y
+        y: nextCoord.y
       }));
       geometry.setWidth(rx * 2);
       geometry.setHeight(ry * 2);
@@ -21658,92 +21780,97 @@
     'generate': function generate(geometry) {
       return geometry;
     }
-  });
-  DrawTool.registerMode('freeHandEllipse', {
-    'action': ['mousedown', 'mousemove', 'mouseup'],
-    'create': function create(coordinates) {
-      return new Ellipse(coordinates[0], 0, 0);
-    },
-    'update': function update(path, geometry) {
-      var map = geometry.getMap();
-      var center = geometry.getCenter();
-      var rx = map.computeLength(center, new Coordinate({
-        x: path[path.length - 1].x,
-        y: center.y
-      }));
-      var ry = map.computeLength(center, new Coordinate({
-        x: center.x,
-        y: path[path.length - 1].y
-      }));
-      geometry.setWidth(rx * 2);
-      geometry.setHeight(ry * 2);
-    },
-    'generate': function generate(geometry) {
-      return geometry;
-    }
-  });
-  DrawTool.registerMode('rectangle', {
+  };
+  DrawTool.registerMode('ellipse', extend({
     'clickLimit': 2,
-    'action': ['click', 'mousemove', 'click'],
-    'create': function create(coordinates) {
+    'action': ['click', 'mousemove', 'click']
+  }, ellipseHooks));
+  DrawTool.registerMode('freeHandEllipse', extend({
+    'action': ['mousedown', 'mousemove', 'mouseup']
+  }, ellipseHooks));
+  var rectangleHooks = {
+    'create': function create(projection, prjCoords) {
       var rect = new Polygon([]);
-      rect._firstClick = coordinates[0];
+      rect._firstClick = prjCoords[0];
       return rect;
     },
-    'update': function update(coordinates, geometry, param) {
+    'update': function update(projection, prjCoords, geometry, param) {
       var map = geometry.getMap();
       var containerPoint = param['containerPoint'];
-      var firstClick = map.coordToContainerPoint(geometry._firstClick);
+
+      var firstClick = map._prjToContainerPoint(geometry._firstClick);
+
       var ring = [[firstClick.x, firstClick.y], [containerPoint.x, firstClick.y], [containerPoint.x, containerPoint.y], [firstClick.x, containerPoint.y]];
       geometry.setCoordinates(ring.map(function (c) {
         return map.containerPointToCoord(new Point(c));
       }));
+
+      geometry._setPrjCoordinates(ring.map(function (c) {
+        return map._containerPointToPrj(new Point(c));
+      }));
     },
     'generate': function generate(geometry) {
       return geometry;
     }
-  });
-  DrawTool.registerMode('freeHandRectangle', {
-    'action': ['mousedown', 'mousemove', 'mouseup'],
-    'create': function create(coordinates) {
-      var rect = new Polygon([]);
-      rect._firstClick = coordinates[0];
-      return rect;
-    },
-    'update': function update(coordinates, geometry) {
-      var firstClick = geometry._firstClick;
-      var ring = [[firstClick.x, firstClick.y], [coordinates[0].x, firstClick.y], [coordinates[0].x, coordinates[0].y], [firstClick.x, coordinates[0].y]];
-      geometry.setCoordinates(ring);
-    },
-    'generate': function generate(geometry) {
-      return geometry;
-    }
-  });
+  };
+  DrawTool.registerMode('rectangle', extend({
+    'clickLimit': 2,
+    'action': ['click', 'mousemove', 'click']
+  }, rectangleHooks));
+  DrawTool.registerMode('freeHandRectangle', extend({
+    'action': ['mousedown', 'mousemove', 'mouseup']
+  }, rectangleHooks));
   DrawTool.registerMode('point', {
     'clickLimit': 1,
     'action': ['click'],
-    'create': function create(coordinate) {
-      return new Marker(coordinate[0]);
+    'create': function create(projection, prjCoord) {
+      var center = projection.unproject(prjCoord[0]);
+      var marker = new Marker(center);
+
+      marker._setPrjCoordinates(prjCoord[0]);
+
+      return marker;
     },
     'generate': function generate(geometry) {
       return geometry;
     }
   });
-  DrawTool.registerMode('polygon', {
-    'action': ['click', 'mousemove', 'dblclick'],
-    'create': function create(path) {
-      return new LineString(path);
+  var polygonHooks = {
+    'create': function create(projection, prjPath) {
+      var path = prjPath.map(function (c) {
+        return projection.unproject(c);
+      });
+      var line = new LineString(path);
+
+      line._setPrjCoordinates(prjPath);
+
+      return line;
     },
-    'update': function update(path, geometry) {
+    'update': function update(projection, path, geometry) {
       var symbol = geometry.getSymbol();
-      geometry.setCoordinates(path);
+      var prjCoords;
+
+      if (Array.isArray(path)) {
+        prjCoords = path;
+      } else {
+        prjCoords = geometry._getPrjCoordinates();
+        prjCoords.push(path);
+      }
+
+      var coordinates = prjCoords.map(function (c) {
+        return projection.unproject(c);
+      });
+      geometry.setCoordinates(coordinates);
+
+      geometry._setPrjCoordinates(prjCoords);
+
       var layer = geometry.getLayer();
 
       if (layer) {
         var polygon = layer.getGeometryById('polygon');
 
-        if (!polygon && path.length >= 3) {
-          polygon = new Polygon([path], {
+        if (!polygon && prjCoords.length >= 3) {
+          polygon = new Polygon([coordinates], {
             'id': 'polygon'
           });
 
@@ -21758,130 +21885,137 @@
         }
 
         if (polygon) {
-          polygon.setCoordinates(path);
+          polygon._setPrjCoordinates(prjCoords);
         }
       }
     },
     'generate': function generate(geometry) {
-      return new Polygon(geometry.getCoordinates(), {
+      var polygon = new Polygon(geometry.getCoordinates(), {
         'symbol': geometry.getSymbol()
       });
+
+      polygon._setPrjCoordinates(geometry._getPrjCoordinates());
+
+      polygon._projCode = geometry._projCode;
+      return polygon;
     }
-  });
-  DrawTool.registerMode('freeHandPolygon', {
-    'action': ['mousedown', 'mousemove', 'mouseup'],
-    'create': function create(path) {
-      return new LineString(path);
+  };
+  DrawTool.registerMode('polygon', extend({
+    'action': ['click', 'mousemove', 'dblclick']
+  }, polygonHooks));
+  DrawTool.registerMode('freeHandPolygon', extend({
+    'action': ['mousedown', 'mousemove', 'mouseup']
+  }, polygonHooks));
+  var lineStringHooks = {
+    'create': function create(projection, prjPath) {
+      var path = prjPath.map(function (c) {
+        return projection.unproject(c);
+      });
+      var line = new LineString(path);
+
+      line._setPrjCoordinates(prjPath);
+
+      return line;
     },
-    'update': function update(path, geometry) {
-      var coordinates = geometry.getCoordinates();
-      var symbol = geometry.getSymbol();
-      geometry.setCoordinates(coordinates.concat(path));
-      var layer = geometry.getLayer();
+    'update': function update(projection, prjPath, geometry) {
+      var prjCoords;
 
-      if (layer) {
-        var polygon = layer.getGeometryById('polygon');
-
-        if (!polygon && path.length >= 3) {
-          polygon = new Polygon([path], {
-            'id': 'polygon'
-          });
-
-          if (symbol) {
-            var pSymbol = extendSymbol(symbol, {
-              'lineOpacity': 0
-            });
-            polygon.setSymbol(pSymbol);
-          }
-
-          polygon.addTo(layer);
-        }
-
-        if (polygon) {
-          polygon.setCoordinates(path);
-        }
+      if (Array.isArray(prjPath)) {
+        prjCoords = prjPath;
+      } else {
+        prjCoords = geometry._getPrjCoordinates();
+        prjCoords.push(prjPath);
       }
-    },
-    'generate': function generate(geometry) {
-      return new Polygon(geometry.getCoordinates(), {
-        'symbol': geometry.getSymbol()
+
+      var path = prjCoords.map(function (c) {
+        return projection.unproject(c);
       });
-    }
-  });
-  DrawTool.registerMode('linestring', {
-    'action': ['click', 'mousemove', 'dblclick'],
-    'create': function create(path) {
-      return new LineString(path);
-    },
-    'update': function update(path, geometry) {
       geometry.setCoordinates(path);
+
+      geometry._setPrjCoordinates(prjCoords);
     },
     'generate': function generate(geometry) {
       return geometry;
     }
-  });
-  DrawTool.registerMode('freeHandLinestring', {
-    'action': ['mousedown', 'mousemove', 'mouseup'],
-    'create': function create(path) {
-      return new LineString(path);
-    },
-    'update': function update(path, geometry) {
-      var coordinates = geometry.getCoordinates();
-      geometry.setCoordinates(coordinates.concat(path));
-    },
-    'generate': function generate(geometry) {
-      return geometry;
-    }
-  });
+  };
+  DrawTool.registerMode('linestring', extend({
+    'action': ['click', 'mousemove', 'dblclick']
+  }, lineStringHooks));
+  DrawTool.registerMode('freeHandLinestring', extend({
+    'action': ['mousedown', 'mousemove', 'mouseup']
+  }, lineStringHooks));
   DrawTool.registerMode('arccurve', {
     'action': ['click', 'mousemove', 'dblclick'],
-    'create': function create(path) {
-      return new ArcCurve(path);
+    'create': function create(projection, prjPath) {
+      var path = prjPath.map(function (c) {
+        return projection.unproject(c);
+      });
+      var arc = new ArcCurve(path);
+
+      arc._setPrjCoordinates(prjPath);
+
+      return arc;
     },
-    'update': function update(path, geometry) {
-      geometry.setCoordinates(path);
-    },
+    'update': lineStringHooks.update,
     'generate': function generate(geometry) {
       return geometry;
     }
   });
   DrawTool.registerMode('quadbeziercurve', {
     'action': ['click', 'mousemove', 'dblclick'],
-    'create': function create(path) {
-      return new QuadBezierCurve(path);
+    'create': function create(projection, prjPath) {
+      var path = prjPath.map(function (c) {
+        return projection.unproject(c);
+      });
+      var curve = new QuadBezierCurve(path);
+
+      curve._setPrjCoordinates(prjPath);
+
+      return curve;
     },
-    'update': function update(path, geometry) {
-      geometry.setCoordinates(path);
-    },
+    'update': lineStringHooks.update,
     'generate': function generate(geometry) {
       return geometry;
     }
   });
   DrawTool.registerMode('cubicbeziercurve', {
     'action': ['click', 'mousemove', 'dblclick'],
-    'create': function create(path) {
-      return new CubicBezierCurve(path);
+    'create': function create(projection, prjPath) {
+      var path = prjPath.map(function (c) {
+        return projection.unproject(c);
+      });
+      var curve = new CubicBezierCurve(path);
+
+      curve._setPrjCoordinates(prjPath);
+
+      return curve;
     },
-    'update': function update(path, geometry) {
-      geometry.setCoordinates(path);
-    },
+    'update': lineStringHooks.update,
     'generate': function generate(geometry) {
       return geometry;
     }
   });
   DrawTool.registerMode('boxZoom', {
     'action': ['mousedown', 'mousemove', 'mouseup'],
-    'create': function create(coordinates) {
-      var marker = new Marker(coordinates[0]);
-      marker._firstClick = coordinates[0];
+    'create': function create(projection, prjCoord) {
+      prjCoord = prjCoord[0];
+      var center = projection.unproject(prjCoord);
+      var marker = new Marker(center);
+      marker._firstClick = prjCoord;
       return marker;
     },
-    'update': function update(path, geometry, param) {
+    'update': function update(projection, prjCoord, geometry, param) {
       var map = geometry.getMap();
-      var p1 = map.coordToContainerPoint(geometry._firstClick),
+
+      var p1 = map._prjToContainerPoint(geometry._firstClick),
           p2 = param['containerPoint'];
-      var coords = map.containerPointToCoordinate(new Coordinate(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y)));
-      geometry.setCoordinates(coords).updateSymbol({
+
+      prjCoord = map._containerPointToPrj(new Coordinate(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y)));
+      var center = projection.unproject(prjCoord);
+
+      geometry.setCoordinates(center)._setPrjCoordinates(prjCoord);
+
+      geometry.updateSymbol({
         markerWidth: Math.abs(p1.x - p2.x),
         markerHeight: Math.abs(p1.y - p2.y)
       });
@@ -22953,7 +23087,7 @@
 
       var owner = this.getOwner();
       setTimeout(function () {
-        if (owner instanceof Marker) {
+        if (owner instanceof Marker || owner instanceof UIComponent) {
           _this.show(owner.getCoordinates());
         } else if (owner instanceof MultiPoint) {
           _this.show(owner.findClosest(e.coordinate));
@@ -24826,12 +24960,15 @@
   });
 
   var TileConfig = function () {
-    function TileConfig(tileSystem, fullExtent, tileSize) {
+    function TileConfig(map, tileSystem, fullExtent, tileSize) {
+      this.map = map;
       this.tileSize = tileSize;
       this.fullExtent = fullExtent;
       this.prepareTileInfo(tileSystem, fullExtent);
       this._xScale = fullExtent['right'] >= fullExtent['left'] ? 1 : -1;
       this._yScale = fullExtent['top'] >= fullExtent['bottom'] ? 1 : -1;
+      this._pointOrigin = map._prjToPoint(new Point(this.tileSystem['origin']), map.getGLZoom());
+      this._glRes = map.getResolution(map.getGLZoom());
     }
 
     var _proto = TileConfig.prototype;
@@ -24859,15 +24996,15 @@
       var tileSystem = this.tileSystem,
           tileSize = this['tileSize'],
           delta = 1E-7;
-      var tileX = Math.floor(delta + point.x / (tileSize['width'] * res));
-      var tileY = Math.ceil(delta + point.y / (tileSize['height'] * res));
+      var tileX = Math.floor(delta * tileSystem['scale']['x'] + point.x / (tileSize['width'] * res));
+      var tileY = Math.ceil(delta * tileSystem['scale']['y'] + point.y / (tileSize['height'] * res));
       return {
         'x': tileSystem['scale']['x'] * tileX,
         'y': tileSystem['scale']['y'] * tileY
       };
     };
 
-    _proto.getTileIndex = function getTileIndex(pCoord, res) {
+    _proto.getTileIndex = function getTileIndex(pCoord, res, repeatWorld) {
       var tileSystem = this.tileSystem;
       var point = this.transformation.transform(pCoord, 1);
 
@@ -24881,7 +25018,7 @@
         tileIndex['y'] -= 1;
       }
 
-      return this.getNeighorTileIndex(tileIndex['x'], tileIndex['y'], 0, 0, res);
+      return this.getNeighorTileIndex(tileIndex['x'], tileIndex['y'], 0, 0, res, repeatWorld);
     };
 
     _proto.getNeighorTileIndex = function getNeighorTileIndex(tileX, tileY, offsetX, offsetY, res, repeatWorld) {
@@ -24938,6 +25075,14 @@
     };
 
     _proto._getTileFullIndex = function _getTileFullIndex(res) {
+      if (!this._tileFullIndex) {
+        this._tileFullIndex = {};
+      }
+
+      if (this._tileFullIndex[res]) {
+        return this._tileFullIndex[res];
+      }
+
       var ext = this.fullExtent;
       var transformation = this.transformation;
 
@@ -24957,7 +25102,8 @@
         seIndex.y -= 1;
       }
 
-      return new Extent(nwIndex, seIndex);
+      this._tileFullIndex[res] = new Extent(nwIndex, seIndex);
+      return this._tileFullIndex[res];
     };
 
     _proto.getTilePrjNW = function getTilePrjNW(tileX, tileY, res) {
@@ -24968,12 +25114,30 @@
       return new Coordinate(x, y);
     };
 
+    _proto.getTilePointNW = function getTilePointNW(tileX, tileY, res) {
+      var scale = this._glRes / res;
+      var tileSystem = this.tileSystem;
+      var tileSize = this['tileSize'];
+      var y = this._pointOrigin.y * scale + this._yScale * tileSystem['scale']['y'] * (tileY + (tileSystem['scale']['y'] === 1 ? 1 : 0)) * tileSize['height'];
+      var x = this._pointOrigin.x * scale + this._xScale * tileSystem['scale']['x'] * (tileX + (tileSystem['scale']['x'] === 1 ? 0 : 1)) * tileSize['width'];
+      return new Point(x, y);
+    };
+
     _proto.getTilePrjSE = function getTilePrjSE(tileX, tileY, res) {
       var tileSystem = this.tileSystem;
       var tileSize = this['tileSize'];
       var y = tileSystem['origin']['y'] + this._yScale * tileSystem['scale']['y'] * (tileY + (tileSystem['scale']['y'] === 1 ? 0 : 1)) * res * tileSize['height'];
       var x = tileSystem['origin']['x'] + this._xScale * tileSystem['scale']['x'] * (tileX + (tileSystem['scale']['x'] === 1 ? 1 : 0)) * res * tileSize['width'];
       return new Coordinate(x, y);
+    };
+
+    _proto.getTilePointSE = function getTilePointSE(tileX, tileY, res) {
+      var scale = this._glRes / res;
+      var tileSystem = this.tileSystem;
+      var tileSize = this['tileSize'];
+      var y = this._pointOrigin.y * scale + this._yScale * tileSystem['scale']['y'] * (tileY + (tileSystem['scale']['y'] === 1 ? 0 : 1)) * tileSize['height'];
+      var x = this._pointOrigin.x * scale + this._xScale * tileSystem['scale']['x'] * (tileX + (tileSystem['scale']['x'] === 1 ? 1 : 0)) * tileSize['width'];
+      return new Point(x, y);
     };
 
     _proto.getTilePrjExtent = function getTilePrjExtent(tileX, tileY, res) {
@@ -24983,6 +25147,109 @@
     };
 
     return TileConfig;
+  }();
+
+  var planes = [];
+
+  for (var i = 0; i < 6; i++) {
+    planes[i] = [];
+  }
+  var p = [];
+  function intersectsBox(matrix, box, mask) {
+    setPlanes(matrix);
+
+    for (var i = 0; i < 6; i++) {
+      if (mask && mask.charAt(i) === '0') {
+        continue;
+      }
+
+      var plane = planes[i];
+      p[0] = plane[0] > 0 ? box[1][0] : box[0][0];
+      p[1] = plane[1] > 0 ? box[1][1] : box[0][1];
+      p[2] = plane[2] > 0 ? box[1][2] : box[0][2];
+
+      if (distanceToPoint(plane, p) < 0) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function setPlanes(m) {
+    var me = m;
+    var me0 = me[0],
+        me1 = me[1],
+        me2 = me[2],
+        me3 = me[3];
+    var me4 = me[4],
+        me5 = me[5],
+        me6 = me[6],
+        me7 = me[7];
+    var me8 = me[8],
+        me9 = me[9],
+        me10 = me[10],
+        me11 = me[11];
+    var me12 = me[12],
+        me13 = me[13],
+        me14 = me[14],
+        me15 = me[15];
+    setComponents(planes[0], me3 - me0, me7 - me4, me11 - me8, me15 - me12);
+    setComponents(planes[1], me3 + me0, me7 + me4, me11 + me8, me15 + me12);
+    setComponents(planes[2], me3 + me1, me7 + me5, me11 + me9, me15 + me13);
+    setComponents(planes[3], me3 - me1, me7 - me5, me11 - me9, me15 - me13);
+    setComponents(planes[4], me3 - me2, me7 - me6, me11 - me10, me15 - me14);
+    setComponents(planes[5], me3 + me2, me7 + me6, me11 + me10, me15 + me14);
+  }
+
+  var normalLength = 1.0 / 6;
+
+  function setComponents(out, x, y, z, w) {
+    out[0] = x * normalLength;
+    out[1] = y * normalLength;
+    out[2] = z * normalLength;
+    out[3] = w * normalLength;
+    return out;
+  }
+
+  function distanceToPoint(plane, p) {
+    return plane[0] * p[0] + plane[1] * p[1] + plane[2] * p[2] + plane[3];
+  }
+
+  var isSetAvailable = typeof Set !== 'undefined';
+
+  var TileHashset = function () {
+    function TileHashset() {
+      this._table = isSetAvailable ? new Set() : {};
+    }
+
+    var _proto = TileHashset.prototype;
+
+    _proto.add = function add$$1(key) {
+      if (isSetAvailable) {
+        this._table.add(key);
+      } else {
+        this._table[key] = true;
+      }
+    };
+
+    _proto.has = function has(key) {
+      if (isSetAvailable) {
+        return this._table.has(key);
+      } else {
+        return this._table[key];
+      }
+    };
+
+    _proto.reset = function reset() {
+      if (isSetAvailable) {
+        this._table.clear();
+      } else {
+        this._table = {};
+      }
+    };
+
+    return TileHashset;
   }();
 
   var options$u = {
@@ -25008,7 +25275,6 @@
     'clipByPitch': true,
     'maxAvailableZoom': null,
     'cascadeTiles': true,
-    'minPitchToCascade': 35,
     'zoomOffset': 0
   };
   var URL_PATTERN = /\{ *([\w_]+) *\}/g;
@@ -25017,7 +25283,11 @@
   var TEMP_POINT1$2 = new Point(0, 0);
   var TEMP_POINT2$1 = new Point(0, 0);
   var TEMP_POINT3 = new Point(0, 0);
-  var TEMP_POINT_EXTENT = new PointExtent();
+  var TEMP_POINT4 = new Point(0, 0);
+  var TEMP_POINT5 = new Point(0, 0);
+  var TEMP_POINT6 = new Point(0, 0);
+  var TILE_BOX = [[0, 0, 0], [0, 0, 0]];
+  var ARR3 = [];
 
   var TileLayer = function (_Layer) {
     _inheritsLoose(TileLayer, _Layer);
@@ -25034,9 +25304,9 @@
       return new TileLayer(layerJSON['id'], layerJSON['options']);
     };
 
-    var _proto = TileLayer.prototype;
+    var _proto2 = TileLayer.prototype;
 
-    _proto.getTileSize = function getTileSize() {
+    _proto2.getTileSize = function getTileSize() {
       var size = this.options['tileSize'];
 
       if (isNumber(size)) {
@@ -25046,18 +25316,25 @@
       return new Size(size);
     };
 
-    _proto.getTiles = function getTiles(z, parentLayer) {
+    _proto2.getTiles = function getTiles(z, parentLayer) {
       var map = this.getMap();
+      var pitch = map.getPitch();
       var parentRenderer = parentLayer && parentLayer.getRenderer();
       var mapExtent = map.getContainerExtent();
       var tileGrids = [];
       var count = 0;
       var minZoom = this.getMinZoom();
-      var minPitchToCascade = this.options['minPitchToCascade'];
+      var cascadePitch0 = map.options['cascadePitches'][0];
+      var cascadePitch1 = map.options['cascadePitches'][1];
+      var visualHeight1 = Math.floor(map._getVisualHeight(cascadePitch1));
       var tileZoom = isNil(z) ? this._getTileZoom(map.getZoom()) : z;
+      this._visitedTiles = new TileHashset();
+      this._coordCache = {};
 
-      if (!isNil(z) || !this.options['cascadeTiles'] || map.getPitch() <= minPitchToCascade || !isNil(minZoom) && tileZoom <= minZoom) {
-        var _currentTiles = this._getTiles(tileZoom, mapExtent, undefined, parentRenderer);
+      if (!isNil(z) || !this.options['cascadeTiles'] || pitch <= cascadePitch0 || !isNil(minZoom) && tileZoom <= minZoom) {
+        var containerExtent = pitch <= cascadePitch1 ? mapExtent : new PointExtent(0, map.height - visualHeight1, map.width, map.height);
+
+        var _currentTiles = this._getTiles(tileZoom, containerExtent, 2, parentRenderer);
 
         if (_currentTiles) {
           count += _currentTiles.tiles.length;
@@ -25070,26 +25347,51 @@
         };
       }
 
-      var visualHeight = Math.floor(map._getVisualHeight(minPitchToCascade));
-      var extent0 = new PointExtent(0, map.height - visualHeight, map.width, map.height);
+      var visualHeight0 = Math.floor(map._getVisualHeight(cascadePitch0));
+      var extent0 = new PointExtent(0, map.height - visualHeight0, map.width, map.height);
 
       var currentTiles = this._getTiles(tileZoom, extent0, 0, parentRenderer);
 
       count += currentTiles ? currentTiles.tiles.length : 0;
-      var extent1 = new PointExtent(0, mapExtent.ymin, map.width, extent0.ymin);
+      tileGrids.push(currentTiles);
+      var cascadeHeight = extent0.ymin;
       var d = map.getSpatialReference().getZoomDirection();
+      var cascadeLevels = d;
+      var cascadeTiles1;
 
-      var parentTiles = this._getTiles(tileZoom - d, extent1, 1, parentRenderer);
+      if (pitch > cascadePitch1) {
+        if (tileZoom - cascadeLevels <= minZoom) {
+          cascadeLevels = 0;
+        }
 
-      count += parentTiles ? parentTiles.tiles.length : 0;
-      tileGrids.push(currentTiles, parentTiles);
+        var extent1 = new PointExtent(0, map.height - visualHeight1, map.width, cascadeHeight);
+        cascadeTiles1 = this._getTiles(tileZoom - cascadeLevels, extent1, 1, parentRenderer);
+        count += cascadeTiles1 ? cascadeTiles1.tiles.length : 0;
+        cascadeHeight = extent1.ymin;
+        cascadeLevels += 4 * d;
+      }
+
+      var cascadeTiles2;
+
+      if (tileZoom - cascadeLevels >= minZoom) {
+        var extent2 = new PointExtent(0, mapExtent.ymin, map.width, cascadeHeight);
+        cascadeTiles2 = this._getTiles(tileZoom - cascadeLevels, extent2, 2, parentRenderer);
+        count += cascadeTiles2 ? cascadeTiles2.tiles.length : 0;
+        tileGrids.push(cascadeTiles2);
+      }
+
+      if (cascadeTiles1 && cascadeTiles2) {
+        tileGrids[1] = cascadeTiles2;
+        tileGrids[2] = cascadeTiles1;
+      }
+
       return {
         tileGrids: tileGrids,
         count: count
       };
     };
 
-    _proto.getTileUrl = function getTileUrl(x, y, z) {
+    _proto2.getTileUrl = function getTileUrl(x, y, z) {
       var urlTemplate = this.options['urlTemplate'];
       var domain = '';
 
@@ -25097,8 +25399,8 @@
         var subdomains = this.options['subdomains'];
 
         if (isArrayHasData(subdomains)) {
-          var length = subdomains.length;
-          var s = (x + y) % length;
+          var length$$1 = subdomains.length;
+          var s = (x + y) % length$$1;
 
           if (s < 0) {
             s = 0;
@@ -25131,7 +25433,7 @@
       });
     };
 
-    _proto.clear = function clear() {
+    _proto2.clear = function clear() {
       if (this._renderer) {
         this._renderer.clear();
       }
@@ -25140,7 +25442,7 @@
       return this;
     };
 
-    _proto.toJSON = function toJSON() {
+    _proto2.toJSON = function toJSON() {
       var profile = {
         'type': this.getJSONType(),
         'id': this.getId(),
@@ -25149,7 +25451,7 @@
       return profile;
     };
 
-    _proto.getSpatialReference = function getSpatialReference() {
+    _proto2.getSpatialReference = function getSpatialReference() {
       var map = this.getMap();
 
       if (map && (!this.options['spatialReference'] || SpatialReference.equals(this.options['spatialReference'], map.options['spatialReference']))) {
@@ -25166,7 +25468,7 @@
       return this._sr;
     };
 
-    _proto.getMinZoom = function getMinZoom() {
+    _proto2.getMinZoom = function getMinZoom() {
       var sr = this.getSpatialReference();
 
       if (sr !== this.getMap().getSpatialReference()) {
@@ -25176,7 +25478,7 @@
       return _Layer.prototype.getMinZoom.call(this);
     };
 
-    _proto.getMaxZoom = function getMaxZoom() {
+    _proto2.getMaxZoom = function getMaxZoom() {
       var sr = this.getSpatialReference();
 
       if (sr !== this.getMap().getSpatialReference()) {
@@ -25186,7 +25488,7 @@
       return _Layer.prototype.getMaxZoom.call(this);
     };
 
-    _proto._getTileZoom = function _getTileZoom(zoom) {
+    _proto2._getTileZoom = function _getTileZoom(zoom) {
       if (!isInteger(zoom)) {
         zoom = Math.round(zoom);
       }
@@ -25200,8 +25502,21 @@
       return zoom;
     };
 
-    _proto._getTiles = function _getTiles(z, containerExtent, maskID, parentRenderer) {
+    _proto2._getTiles = function _getTiles(tileZoom, containerExtent, cascadeLevel, parentRenderer) {
+      var _this = this;
+
       var map = this.getMap();
+      var z = tileZoom;
+      var frustumMatrix = map.projViewMatrix;
+
+      if (cascadeLevel < 2) {
+        if (cascadeLevel === 0) {
+          z -= 1;
+        }
+
+        frustumMatrix = cascadeLevel === 0 ? map.cascadeFrustumMatrix0 : cascadeLevel === 1 ? map.cascadeFrustumMatrix1 : map.projViewMatrix;
+      }
+
       var zoom = z + this.options['zoomOffset'];
 
       var offset = this._getTileOffset(zoom),
@@ -25235,18 +25550,29 @@
         return emptyGrid;
       }
 
-      var sr = this.getSpatialReference(),
-          mapSR = map.getSpatialReference(),
-          res = sr.getResolution(zoom);
+      var sr = this.getSpatialReference();
+      var mapSR = map.getSpatialReference();
+      var res = sr.getResolution(zoom);
+      var glScale = map.getGLScale(z);
+      var repeatWorld = sr === mapSR && this.options['repeatWorld'];
       var extent2d = containerExtent.convertTo(function (c) {
-        return map._containerPointToPoint(c, undefined, TEMP_POINT);
+        var result;
+
+        if (c.y > 0 && c.y < map.height) {
+          var key = (c.x === 0 ? 0 : 1) + c.y;
+
+          if (!_this._coordCache[key]) {
+            _this._coordCache[key] = map._containerPointToPoint(c);
+          }
+
+          result = _this._coordCache[key];
+        }
+
+        result = map._containerPointToPoint(c, undefined, TEMP_POINT);
+        return result;
       });
 
-      var innerExtent2D = this._getInnerExtent(z, containerExtent, extent2d)._add(offset);
-
       extent2d._add(offset);
-
-      var offsetExtent2D = extent2d.sub(offset);
 
       var maskExtent = this._getMask2DExtent();
 
@@ -25264,10 +25590,12 @@
 
       var prjCenter = map._containerPointToPrj(containerExtent.getCenter(), TEMP_POINT0$3);
 
+      var centerPoint = map._prjToPoint(prjCenter, undefined, TEMP_POINT1$2);
+
       var c;
 
       if (hasOffset) {
-        c = this._project(map._pointToPrj(map._prjToPoint(prjCenter, undefined, TEMP_POINT1$2)._add(offset), undefined, TEMP_POINT1$2), TEMP_POINT1$2);
+        c = this._project(map._pointToPrj(centerPoint._add(offset), undefined, TEMP_POINT1$2), TEMP_POINT1$2);
       } else {
         c = this._project(prjCenter, TEMP_POINT1$2);
       }
@@ -25281,20 +25609,19 @@
 
       var pmax = this._project(map._pointToPrj(TEMP_POINT3, undefined, TEMP_POINT3), TEMP_POINT3);
 
-      var centerTile = tileConfig.getTileIndex(c, res);
-      var ltTile = tileConfig.getTileIndex(pmin, res);
-      var rbTile = tileConfig.getTileIndex(pmax, res);
-      var top = Math.ceil(Math.abs(centerTile.y - ltTile.y)),
-          left = Math.ceil(Math.abs(centerTile.x - ltTile.x)),
-          bottom = Math.ceil(Math.abs(centerTile.y - rbTile.y)),
-          right = Math.ceil(Math.abs(centerTile.x - rbTile.x));
+      var centerTile = tileConfig.getTileIndex(c, res, repeatWorld);
+      var ltTile = tileConfig.getTileIndex(pmin, res, repeatWorld);
+      var rbTile = tileConfig.getTileIndex(pmax, res, repeatWorld);
+      var top = Math.ceil(Math.abs(centerTile.idy - ltTile.idy)),
+          left = Math.ceil(Math.abs(centerTile.idx - ltTile.idx)),
+          bottom = Math.ceil(Math.abs(centerTile.idy - rbTile.idy)),
+          right = Math.ceil(Math.abs(centerTile.idx - rbTile.idx));
+      var allCount = (top + bottom + 1) * (left + right + 1);
       var tileSize = this.getTileSize();
 
-      var layerId = this.getId(),
-          renderer = this.getRenderer() || parentRenderer,
+      var renderer = this.getRenderer() || parentRenderer,
           scale = this._getTileConfig().tileSystem.scale;
 
-      var visited = {};
       var tiles = [],
           extent = new PointExtent();
 
@@ -25304,7 +25631,7 @@
         var rightVisitEnd = false;
 
         while (j >= leftVisitEnd && j <= right) {
-          var idx = tileConfig.getNeighorTileIndex(centerTile['x'], centerTile['y'], j, i, res, sr === mapSR && this.options['repeatWorld']);
+          var idx = tileConfig.getNeighorTileIndex(centerTile.idx, centerTile.idy, j, i, res, repeatWorld);
 
           if (leftVisitEnd === -Infinity) {
             j++;
@@ -25312,24 +25639,16 @@
             j--;
           }
 
-          if (idx.out) {
+          var tileId = this._getTileId(idx.idx, idx.idy, z);
+
+          if (idx.out || this._visitedTiles && this._visitedTiles.has(tileId)) {
             continue;
           }
 
-          var hasCachedInfo = false;
-
-          var tileId = this._getTileId(idx, zoom);
-
-          var tileInfo = void 0;
-
-          if (!visited[tileId]) {
-            tileInfo = renderer && renderer.isTileCachedOrLoading(tileId);
-            visited[tileId] = 1;
-          }
+          var tileInfo = renderer && renderer.isTileCachedOrLoading(tileId);
 
           if (tileInfo) {
             tileInfo = tileInfo.info;
-            hasCachedInfo = true;
           }
 
           var p = void 0;
@@ -25338,6 +25657,8 @@
             var _tileInfo = tileInfo,
                 point0 = _tileInfo.point0;
             p = tileInfo.point.set(point0.x, point0.y);
+          } else if (!this._hasOwnSR) {
+            p = tileConfig.getTilePointNW(idx.x, idx.y, res);
           } else {
             var pnw = tileConfig.getTilePrjNW(idx.x, idx.y, res);
             p = map._prjToPoint(this._unproject(pnw, TEMP_POINT3), z);
@@ -25350,8 +25671,14 @@
             width = tileSize.width;
             height = tileSize.height;
           } else {
-            var pse = tileConfig.getTilePrjSE(idx.x, idx.y, res),
-                pp = map._prjToPoint(this._unproject(pse, TEMP_POINT3), z, TEMP_POINT3);
+            var pp = void 0;
+
+            if (!this._hasOwnSR) {
+              pp = tileConfig.getTilePointSE(idx.x, idx.y, res);
+            } else {
+              var pse = tileConfig.getTilePrjSE(idx.x, idx.y, res);
+              pp = map._prjToPoint(this._unproject(pse, TEMP_POINT3), z, TEMP_POINT3);
+            }
 
             width = Math.ceil(Math.abs(pp.x - p.x));
             height = Math.ceil(Math.abs(pp.y - p.y));
@@ -25368,41 +25695,46 @@
             p._sub(offset);
           }
 
-          if (!tileInfo) {
-            var _tileExtent = new PointExtent(p.x, p.y, p.x + width, p.y - height);
+          var tileExtent = tileInfo && tileInfo.extent2d || new PointExtent(p.x, p.y, p.x + width, p.y - height);
 
-            tileInfo = {
-              'point0': p.add(offset)._sub(dx, dy),
-              'point': p,
-              'z': z,
-              'x': idx.x,
-              'y': idx.y,
-              'extent2d': _tileExtent,
-              'mask': maskID
-            };
-          }
-
-          var tileExtent = tileInfo.extent2d;
-
-          if (rightVisitEnd || innerExtent2D.intersects(tileExtent) || !innerExtent2D.equals(offsetExtent2D) && this._isTileInExtent(tileInfo, containerExtent)) {
-            if (hasOffset) {
-              tileExtent.set(p.x, p.y, p.x + width, p.y - height);
-              tileInfo.point = p._add(offset);
-
-              tileExtent._add(offset);
+          if (allCount <= 4 || rightVisitEnd || this._isTileInExtent(frustumMatrix, tileExtent, glScale)) {
+            if (this._visitedTiles && cascadeLevel === 0) {
+              this._visitedTiles.add(tileId);
             }
 
-            if (!hasCachedInfo) {
-              tileInfo['size'] = [width, height];
-              tileInfo['id'] = tileId;
-              tileInfo['dupKey'] = tileId;
-              tileInfo['layer'] = layerId;
-              tileInfo['url'] = this.getTileUrl(idx.x, idx.y, zoom);
+            if (cascadeLevel === 0) {
+              this._splitTiles(frustumMatrix, tiles, renderer, idx, z + 1, tileExtent, offset, dx, dy);
+
+              extent._combine(tileExtent);
+            } else {
+              if (!tileInfo) {
+                tileInfo = {
+                  'point0': p.add(offset)._sub(dx, dy),
+                  'point': p,
+                  'z': z,
+                  'x': idx.x,
+                  'y': idx.y,
+                  'extent2d': tileExtent,
+                  'mask': cascadeLevel,
+                  'size': [width, height],
+                  'id': tileId,
+                  'dupKey': tileId,
+                  'layer': this.getId(),
+                  'url': this.getTileUrl(idx.x, idx.y, zoom)
+                };
+              }
+
+              if (hasOffset) {
+                tileExtent.set(p.x, p.y, p.x + width, p.y - height);
+                tileInfo.point = p._add(offset);
+
+                tileExtent._add(offset);
+              }
+
+              tiles.push(tileInfo);
+
+              extent._combine(tileExtent);
             }
-
-            tiles.push(tileInfo);
-
-            extent._combine(tileExtent);
 
             if (leftVisitEnd === -Infinity) {
               leftVisitEnd = j;
@@ -25414,34 +25746,96 @@
         }
       }
 
-      var center = map._containerPointToPoint(containerExtent.getCenter(), z, TEMP_POINT)._add(offset);
+      if (tiles.length) {
+        var center = map._containerPointToPoint(containerExtent.getCenter(), z, TEMP_POINT)._add(offset);
 
-      tiles.sort(function (a, b) {
-        return a.point.distanceTo(center) - b.point.distanceTo(center);
-      });
+        tiles.sort(function (a, b) {
+          return a.point.distanceTo(center) - b.point.distanceTo(center);
+        });
+      }
+
       return {
         'offset': offset,
-        'zoom': z,
+        'zoom': tileZoom,
         'extent': extent,
         'tiles': tiles
       };
     };
 
-    _proto._getInnerExtent = function _getInnerExtent(zoom, containerExtent, extent2d) {
-      var map = this.getMap(),
-          res = map.getResolution(zoom),
-          scale = map.getResolution() / res,
-          center = extent2d.getCenter()._multi(scale),
-          bearing = map.getBearing() * Math.PI / 180,
-          ch = containerExtent.getHeight() / 2 * scale,
-          cw = containerExtent.getWidth() / 2 * scale,
-          h = Math.abs(Math.cos(bearing) * ch) || ch,
-          w = Math.abs(Math.sin(bearing) * ch) || cw;
+    _proto2._splitTiles = function _splitTiles(frustumMatrix, tiles, renderer, tileIdx, z, tileExtent, offset, dx, dy) {
+      var yOrder = this._getTileConfig().tileSystem.scale.y;
 
-      return new PointExtent(center.x - w, center.y - h, center.x + w, center.y + h);
+      var glScale = this.getMap().getGLScale(z);
+      var corner = TEMP_POINT4.set(tileExtent.xmin * 2, yOrder < 0 ? tileExtent.ymax * 2 : tileExtent.ymin * 2);
+
+      var corner0 = TEMP_POINT5.set(tileExtent.xmin, yOrder < 0 ? tileExtent.ymax : tileExtent.ymin)._add(offset)._sub(dx, dy)._multi(2);
+
+      var w = tileExtent.getWidth();
+      var h = tileExtent.getHeight();
+      var idx = tileIdx.idx * 2;
+      var idy = tileIdx.idy * 2;
+      var x = tileIdx.x * 2;
+      var y = tileIdx.y * 2;
+
+      var tile = this._checkAndAddTile(frustumMatrix, renderer, idx, idy, x, y, z, 0, 0, w, h, corner, corner0, offset, glScale);
+
+      if (tile) tiles.push(tile);
+      tile = this._checkAndAddTile(frustumMatrix, renderer, idx, idy, x, y, z, 0, 1, w, h, corner, corner0, offset, glScale);
+      if (tile) tiles.push(tile);
+      tile = this._checkAndAddTile(frustumMatrix, renderer, idx, idy, x, y, z, 1, 0, w, h, corner, corner0, offset, glScale);
+      if (tile) tiles.push(tile);
+      tile = this._checkAndAddTile(frustumMatrix, renderer, idx, idy, x, y, z, 1, 1, w, h, corner, corner0, offset, glScale);
+      if (tile) tiles.push(tile);
     };
 
-    _proto._getTileOffset = function _getTileOffset(z) {
+    _proto2._checkAndAddTile = function _checkAndAddTile(frustumMatrix, renderer, idx, idy, x, y, z, i, j, w, h, corner, corner0, offset, glScale) {
+      var tileId = this._getTileId(idx + i, idy + j, z);
+
+      if (this._visitedTiles && this._visitedTiles.has(tileId)) {
+        return null;
+      }
+
+      var yOrder = this._getTileConfig().tileSystem.scale.y;
+
+      var childExtent = new PointExtent(corner.x + i * w, corner.y + yOrder * j * h, corner.x + (i + 1) * w, corner.y + yOrder * (j + 1) * h);
+
+      if (!this._isSplittedTileInExtent(frustumMatrix, childExtent, glScale)) {
+        return null;
+      }
+
+      var hasOffset = offset[0] || offset[1];
+      var tileInfo = renderer && renderer.isTileCachedOrLoading(tileId);
+
+      if (!tileInfo) {
+        tileInfo = {
+          'point0': corner0.add(i * w, Math.max(yOrder * j * h, yOrder * (j + 1) * h)),
+          'point': new Point(childExtent.xmin, childExtent.ymax),
+          'z': z,
+          'x': x + i,
+          'y': y + j,
+          'extent2d': childExtent,
+          'size': [w, h],
+          'id': tileId,
+          'dupKey': tileId,
+          'layer': this.getId(),
+          'url': this.getTileUrl(x + i, y + j, z + this.options['zoomOffset'])
+        };
+      } else {
+        tileInfo = tileInfo.info;
+      }
+
+      if (hasOffset) {
+        tileInfo.extent2d = childExtent;
+
+        tileInfo.extent2d._add(offset);
+
+        tileInfo.point.set(childExtent.xmin, childExtent.ymax)._add(offset);
+      }
+
+      return tileInfo;
+    };
+
+    _proto2._getTileOffset = function _getTileOffset(z) {
       var map = this.getMap();
 
       var scale = map._getResolution() / map._getResolution(z);
@@ -25457,30 +25851,25 @@
       return offset;
     };
 
-    _proto._getTileId = function _getTileId(idx, zoom, id) {
-      return (id || this.getId()) + "-" + idx.idy + "-" + idx.idx + "-" + zoom;
+    _proto2._getTileId = function _getTileId(x, y, zoom, id) {
+      return (id || this.getId()) + "_" + y + "_" + x + "_" + zoom;
     };
 
-    _proto._project = function _project(pcoord, out) {
-      var map = this.getMap();
-      var sr = this.getSpatialReference();
-      var mapSR = map.getSpatialReference();
-
-      if (sr !== mapSR) {
+    _proto2._project = function _project(pcoord, out) {
+      if (this._hasOwnSR) {
+        var map = this.getMap();
         var mapProjection = map.getProjection();
-        var projection = sr.getProjection();
+        var projection = this.getSpatialReference().getProjection();
         return projection.project(mapProjection.unproject(pcoord, out), out);
       } else {
         return pcoord;
       }
     };
 
-    _proto._unproject = function _unproject(pcoord, out) {
-      var map = this.getMap();
-      var sr = this.getSpatialReference();
-      var mapSR = map.getSpatialReference();
-
-      if (sr !== mapSR) {
+    _proto2._unproject = function _unproject(pcoord, out) {
+      if (this._hasOwnSR) {
+        var map = this.getMap();
+        var sr = this.getSpatialReference();
         var mapProjection = map.getProjection();
         var projection = sr.getProjection();
         return mapProjection.project(projection.unproject(pcoord, out), out);
@@ -25489,26 +25878,28 @@
       }
     };
 
-    _proto._initTileConfig = function _initTileConfig() {
+    _proto2._initTileConfig = function _initTileConfig() {
       var map = this.getMap(),
           tileSize = this.getTileSize();
       var sr = this.getSpatialReference();
       var projection = sr.getProjection(),
           fullExtent = sr.getFullExtent();
-      this._defaultTileConfig = new TileConfig(TileSystem.getDefault(projection), fullExtent, tileSize);
+      this._defaultTileConfig = new TileConfig(map, TileSystem.getDefault(projection), fullExtent, tileSize);
 
       if (this.options['tileSystem']) {
-        this._tileConfig = new TileConfig(this.options['tileSystem'], fullExtent, tileSize);
+        this._tileConfig = new TileConfig(map, this.options['tileSystem'], fullExtent, tileSize);
       }
 
       if (map && !this._tileConfig && map.getSpatialReference() === sr && map.getBaseLayer() && map.getBaseLayer() !== this && map.getBaseLayer()._getTileConfig) {
         var base = map.getBaseLayer()._getTileConfig();
 
-        this._tileConfig = new TileConfig(base.tileSystem, base.fullExtent, tileSize);
+        this._tileConfig = new TileConfig(map, base.tileSystem, base.fullExtent, tileSize);
       }
+
+      this._hasOwnSR = sr !== map.getSpatialReference();
     };
 
-    _proto._getTileConfig = function _getTileConfig() {
+    _proto2._getTileConfig = function _getTileConfig() {
       if (!this._defaultTileConfig) {
         this._initTileConfig();
       }
@@ -25516,7 +25907,7 @@
       return this._tileConfig || this._defaultTileConfig;
     };
 
-    _proto._bindMap = function _bindMap(map) {
+    _proto2._bindMap = function _bindMap(map) {
       var baseLayer = map.getBaseLayer();
 
       if (baseLayer === this) {
@@ -25530,24 +25921,43 @@
       return _Layer.prototype._bindMap.apply(this, arguments);
     };
 
-    _proto._isTileInExtent = function _isTileInExtent(tileInfo, extent) {
-      if (!this._convertPointCallback) {
-        this._convertPointCallback = convertPoint.bind(this);
+    _proto2._isTileInExtent = function _isTileInExtent(frustumMatrix, tileExtent, glScale) {
+      var map = this.getMap();
+      var matrix;
+
+      if (frustumMatrix !== map.projViewMatrix) {
+        var tileCenter = tileExtent.getCenter(TEMP_POINT6)._multi(glScale);
+
+        set$2(ARR3, tileCenter.x, tileCenter.y, 0);
+        var ndc = transformMat4(ARR3, ARR3, map.projViewMatrix);
+        matrix = ndc[1] < 0 ? map.projViewMatrix : frustumMatrix;
+      } else {
+        matrix = map.projViewMatrix;
       }
 
-      var tileZoom = tileInfo.z;
-      this._coordTileZoom = tileZoom;
-      var tileExtent = tileInfo.extent2d.convertTo(this._convertPointCallback, TEMP_POINT_EXTENT);
-      return extent.intersects(tileExtent);
+      TILE_BOX[0][0] = tileExtent.xmin * glScale;
+      TILE_BOX[0][1] = tileExtent.ymin * glScale;
+      TILE_BOX[1][0] = tileExtent.xmax * glScale;
+      TILE_BOX[1][1] = tileExtent.ymax * glScale;
+      return intersectsBox(matrix, TILE_BOX);
     };
 
-    _proto.getEvents = function getEvents() {
+    _proto2._isSplittedTileInExtent = function _isSplittedTileInExtent(frustumMatrix, tileExtent, glScale) {
+      var map = this.getMap();
+      TILE_BOX[0][0] = tileExtent.xmin * glScale;
+      TILE_BOX[0][1] = tileExtent.ymin * glScale;
+      TILE_BOX[1][0] = tileExtent.xmax * glScale;
+      TILE_BOX[1][1] = tileExtent.ymax * glScale;
+      return intersectsBox(map.projViewMatrix, TILE_BOX);
+    };
+
+    _proto2.getEvents = function getEvents() {
       return {
         'spatialreferencechange': this._onSpatialReferenceChange
       };
     };
 
-    _proto._onSpatialReferenceChange = function _onSpatialReferenceChange() {
+    _proto2._onSpatialReferenceChange = function _onSpatialReferenceChange() {
       delete this._tileConfig;
       delete this._defaultTileConfig;
       delete this._sr;
@@ -25563,10 +25973,6 @@
 
   TileLayer.registerJSONType('TileLayer');
   TileLayer.mergeOptions(options$u);
-
-  function convertPoint(c) {
-    return this.getMap()._pointToContainerPoint(c, this._coordTileZoom, 0, TEMP_POINT);
-  }
 
   var GroupTileLayer = function (_TileLayer) {
     _inheritsLoose(GroupTileLayer, _TileLayer);
@@ -25968,12 +26374,13 @@
   }
 
   var shaders = {
-    'vertexShader': "\n        attribute vec3 a_position;\n\n        attribute vec2 a_texCoord;\n\n        uniform mat4 u_matrix;\n\n        varying vec2 v_texCoord;\n\n        void main() {\n            gl_Position = u_matrix * vec4(a_position, 1.0);\n\n            v_texCoord = a_texCoord;\n        }\n    ",
-    'fragmentShader': "\n        precision mediump float;\n\n        uniform sampler2D u_image;\n\n        uniform float u_opacity;\n\n        varying vec2 v_texCoord;\n\n        void main() {\n\n            gl_FragColor = texture2D(u_image, v_texCoord) * u_opacity;\n\n        }\n    "
+    'vertexShader': "\n        attribute vec2 a_position;\n\n        attribute vec2 a_texCoord;\n\n        uniform mat4 u_matrix;\n\n        varying vec2 v_texCoord;\n\n        void main() {\n            gl_Position = u_matrix * vec4(a_position, 0., 1.);\n\n            v_texCoord = a_texCoord;\n        }\n    ",
+    'fragmentShader': "\n        precision mediump float;\n\n        uniform sampler2D u_image;\n\n        uniform float u_opacity;\n        uniform float u_debug_line;\n\n        varying vec2 v_texCoord;\n\n        void main() {\n            if (u_debug_line == 1.) {\n                gl_FragColor = vec4(0., 1., 0., 1.);\n            } else {\n                gl_FragColor = texture2D(u_image, v_texCoord) * u_opacity;\n            }\n        }\n    "
   };
   var v2 = [0, 0],
       v3 = [0, 0, 0],
       arr16 = new Array(16);
+  var DEBUG_POINT = new Point(20, 20);
 
   var ImageGLRenderable = function ImageGLRenderable(Base) {
     var renderable = function (_Base) {
@@ -25985,16 +26392,22 @@
 
       var _proto = renderable.prototype;
 
-      _proto.drawGLImage = function drawGLImage(image, x, y, w, h, opacity) {
+      _proto.drawGLImage = function drawGLImage(image, x, y, w, h, scale$$1, opacity, debug) {
+        if (this.gl.program !== this.program) {
+          this.useProgram(this.program);
+        }
+
         var gl = this.gl;
         this.loadTexture(image);
         v3[0] = x || 0;
         v3[1] = y || 0;
         var uMatrix = identity(arr16);
         translate(uMatrix, uMatrix, v3);
+        scale(uMatrix, uMatrix, [scale$$1, scale$$1, 1]);
         multiply(uMatrix, this.getMap().projViewMatrix, uMatrix);
         gl.uniformMatrix4fv(this.program['u_matrix'], false, uMatrix);
         gl.uniform1f(this.program['u_opacity'], opacity);
+        gl.uniform1f(this.program['u_debug_line'], 0);
         var glBuffer = image.glBuffer;
 
         if (glBuffer && (glBuffer.width !== w || glBuffer.height !== h)) {
@@ -26009,8 +26422,53 @@
         }
 
         v2[0] = 'a_position';
-        v2[1] = 3;
+        v2[1] = 2;
+        v2[2] = image.glBuffer.type;
         this.enableVertexAttrib(v2);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        if (debug) {
+          this.drawDebug(uMatrix, v2, 0, 0, w, h, debug);
+        }
+      };
+
+      _proto.drawDebug = function drawDebug(uMatrix, attrib, x, y, w, h, debugInfo) {
+        var gl = this.gl;
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._debugBuffer);
+        this.enableVertexAttrib(['a_position', 2, 'FLOAT']);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([x, y, x + w, y, x + w, y - h, x, y - h, x, y]), gl.DYNAMIC_DRAW);
+        gl.uniformMatrix4fv(this.program['u_matrix'], false, uMatrix);
+        gl.uniform1f(this.program['u_debug_line'], 1);
+        gl.drawArrays(gl.LINE_STRIP, 0, 5);
+        var canvas = this._debugInfoCanvas;
+
+        if (!canvas) {
+          var dpr = this.getMap().getDevicePixelRatio() > 1 ? 2 : 1;
+          canvas = this._debugInfoCanvas = document.createElement('canvas');
+          canvas.width = 256 * dpr;
+          canvas.height = 32 * dpr;
+
+          var _ctx = canvas.getContext('2d');
+
+          _ctx.font = '20px monospace';
+
+          _ctx.scale(dpr, dpr);
+        }
+
+        var ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        var color = this.layer.options['debugOutline'];
+        Canvas.fillText(ctx, debugInfo, DEBUG_POINT, color);
+        this.loadTexture(canvas);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+        w = 256;
+        h = 32;
+        var x1 = x;
+        var x2 = x + w;
+        var y1 = y;
+        var y2 = y - h;
+        gl.bufferData(gl.ARRAY_BUFFER, this.set8(x1, y1, x1, y2, x2, y1, x2, y2), gl.DYNAMIC_DRAW);
+        gl.uniform1f(this.program['u_debug_line'], 0);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       };
 
@@ -26019,9 +26477,18 @@
         var x2 = x + w;
         var y1 = y;
         var y2 = y - h;
-        var glBuffer = this.loadImageBuffer(this.set12(x1, y1, 0, x1, y2, 0, x2, y1, 0, x2, y2, 0), buffer);
+        var data;
+
+        if (isInteger(x1) && isInteger(x2) && isInteger(y1) && isInteger(y2)) {
+          data = this.set8Int(x1, y1, x1, y2, x2, y1, x2, y2);
+        } else {
+          data = this.set8(x1, y1, x1, y2, x2, y1, x2, y2);
+        }
+
+        var glBuffer = this.loadImageBuffer(data, buffer);
         glBuffer.width = w;
         glBuffer.height = h;
+        glBuffer.type = data instanceof Int16Array ? 'SHORT' : 'FLOAT';
         return glBuffer;
       };
 
@@ -26057,20 +26524,16 @@
         gl.enable(gl.STENCIL_TEST);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-        this.program = this.createProgram(shaders['vertexShader'], this.layer.options['fragmentShader'] || shaders['fragmentShader'], ['u_matrix', 'u_image', 'u_opacity']);
+        this.program = this.createProgram(shaders['vertexShader'], this.layer.options['fragmentShader'] || shaders['fragmentShader'], ['u_matrix', 'u_image', 'u_opacity', 'u_debug_line']);
+        this._debugBuffer = this.createBuffer();
         this.useProgram(this.program);
         this.texBuffer = this.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.texBuffer);
-        this.enableVertexAttrib(['a_texCoord', 2]);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0]), gl.STATIC_DRAW);
+        this.enableVertexAttrib(['a_texCoord', 2, 'UNSIGNED_BYTE']);
+        gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array([0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0]), gl.STATIC_DRAW);
         this.enableSampler('u_image');
         gl.activeTexture(gl['TEXTURE0']);
         gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-        this.posBuffer = this.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuffer);
-        this.enableVertexAttrib(['a_position', 3]);
-        this.indicesBuffer = this.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indicesBuffer);
       };
 
       _proto.resizeGLCanvas = function resizeGLCanvas() {
@@ -26186,6 +26649,11 @@
           return;
         }
 
+        if (this._debugBuffer) {
+          gl.deleteBuffer(this._debugBuffer);
+          delete this._debugBuffer;
+        }
+
         if (this._buffers) {
           this._buffers.forEach(function (b) {
             gl.deleteBuffer(b);
@@ -26202,7 +26670,17 @@
           delete this._textures;
         }
 
-        delete this.posBuffer;
+        if (this._debugInfoCanvas) {
+          var texture = this._debugInfoCanvas.texture;
+
+          if (texture) {
+            gl.deleteTexture(texture);
+          }
+
+          delete this._debugInfoCanvas.texture;
+          delete this._debugInfoCanvas;
+        }
+
         var program = gl.program;
         gl.deleteShader(program.fragmentShader);
         gl.deleteShader(program.vertexShader);
@@ -26301,9 +26779,9 @@
     }(Base);
 
     extend(renderable.prototype, {
-      set12: function () {
-        var out = Browser$1.ie9 ? null : new Float32Array(12);
-        return function (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) {
+      set8: function () {
+        var out = Browser$1.ie9 ? null : new Float32Array(8);
+        return function (a0, a1, a2, a3, a4, a5, a6, a7) {
           out[0] = a0;
           out[1] = a1;
           out[2] = a2;
@@ -26312,10 +26790,20 @@
           out[5] = a5;
           out[6] = a6;
           out[7] = a7;
-          out[8] = a8;
-          out[9] = a9;
-          out[10] = a10;
-          out[11] = a11;
+          return out;
+        };
+      }(),
+      set8Int: function () {
+        var out = Browser$1.ie9 ? null : new Int16Array(8);
+        return function (a0, a1, a2, a3, a4, a5, a6, a7) {
+          out[0] = a0;
+          out[1] = a1;
+          out[2] = a2;
+          out[3] = a3;
+          out[4] = a4;
+          out[5] = a5;
+          out[6] = a6;
+          out[7] = a7;
           return out;
         };
       }()
@@ -26563,7 +27051,7 @@
     };
 
     _proto3._drawImage = function _drawImage(image, extent, opacity) {
-      this.drawGLImage(image, extent.xmin, extent.ymax, extent.getWidth(), extent.getHeight(), opacity);
+      this.drawGLImage(image, extent.xmin, extent.ymax, extent.getWidth(), extent.getHeight(), 1, opacity);
     };
 
     _proto3.createContext = function createContext() {
@@ -28036,6 +28524,19 @@
       this._geometry.fire('editrecord');
     };
 
+    _proto.cancel = function cancel() {
+      if (!this._history || this._historyPointer === 0) {
+        return this;
+      }
+
+      this._historyPointer = 0;
+      var record = this._history[0];
+
+      this._exeAndReset(record);
+
+      return this;
+    };
+
     _proto.undo = function undo() {
       if (!this._history || this._historyPointer === 0) {
         return this;
@@ -28050,7 +28551,7 @@
 
     _proto.redo = function redo() {
       if (!this._history || this._historyPointer === this._history.length - 1) {
-        return null;
+        return this;
       }
 
       var record = this._history[++this._historyPointer];
@@ -28797,6 +29298,16 @@
       this.fire('undoedit');
       return this;
     },
+    cancelEdit: function cancelEdit() {
+      if (!this.isEditing()) {
+        return this;
+      }
+
+      this._editor.cancel();
+
+      this.fire('canceledit');
+      return this;
+    },
     isEditing: function isEditing() {
       if (this._editor) {
         return this._editor.isEditing();
@@ -29041,7 +29552,7 @@
       _this.tilesLoading = {};
       _this._parentTiles = [];
       _this._childTiles = [];
-      _this.tileCache = new LRUCache(layer.options['maxCacheSize'], _this.deleteTile.bind(_assertThisInitialized(_assertThisInitialized(_this))));
+      _this.tileCache = new LRUCache(layer.options['maxCacheSize'], _this.deleteTile.bind(_assertThisInitialized(_this)));
       return _this;
     }
 
@@ -29103,27 +29614,28 @@
         for (var _i = 0, _l = allTiles.length; _i < _l; _i++) {
           var tile = allTiles[_i],
               tileId = tile['id'];
-
-          var cached = this._getCachedTile(tileId);
-
           var tileLoading = false;
 
           if (this._isLoadingTile(tileId)) {
             tileLoading = loading = true;
             this.tilesLoading[tileId].current = true;
-          } else if (cached) {
-            if (this.getTileOpacity(cached.image) < 1) {
-              tileLoading = loading = true;
-            }
-
-            tiles.push(cached);
           } else {
-            tileLoading = loading = true;
-            var hitLimit = loadingLimit && loadingCount + preLoadingCount[0] > loadingLimit;
+            var cached = this._getCachedTile(tileId);
 
-            if (!hitLimit && (!map.isInteracting() || map.isMoving() || map.isRotating())) {
-              loadingCount++;
-              tileQueue[tileId + '@' + tile['point'].toArray().join()] = tile;
+            if (cached) {
+              if (this.getTileOpacity(cached.image) < 1) {
+                tileLoading = loading = true;
+              }
+
+              tiles.push(cached);
+            } else {
+              tileLoading = loading = true;
+              var hitLimit = loadingLimit && loadingCount + preLoadingCount[0] > loadingLimit;
+
+              if (!hitLimit && (!map.isInteracting() || map.isMoving() || map.isRotating())) {
+                loadingCount++;
+                tileQueue[tileId + '@' + tile['point'].toArray().join()] = tile;
+              }
             }
           }
 
@@ -29231,7 +29743,7 @@
       var layer = this.layer,
           map = this.getMap();
 
-      if (!layer.options['cascadeTiles'] || map.getPitch() <= layer.options['minPitchToCascade']) {
+      if (!layer.options['cascadeTiles'] || map.getPitch() <= map.options['cascadePitches'][0]) {
         tiles.forEach(function (t) {
           return _this2._drawTileAndCache(t);
         });
@@ -29376,12 +29888,6 @@
     };
 
     _proto.clipCanvas = function clipCanvas(context) {
-      var mask = this.layer.getMask();
-
-      if (!mask) {
-        return this._clipByPitch(context);
-      }
-
       return _CanvasRenderer.prototype.clipCanvas.call(this, context);
     };
 
@@ -29539,13 +30045,13 @@
           h = tileSize[1];
 
       if (transformed) {
-        w += 0.1;
-        h += 0.1;
         ctx.save();
         ctx.translate(x, y);
 
         if (bearing) {
           ctx.rotate(-bearing * Math.PI / 180);
+          w += 0.1;
+          h += 0.1;
         }
 
         if (zoom !== tileZoom) {
@@ -29560,14 +30066,12 @@
       Canvas.image(ctx, tileImage, x, y, w, h);
 
       if (this.layer.options['debug']) {
-        var color = this.layer.options['debugOutline'],
-            xyz = tileId.split('-');
-        var length = xyz.length;
+        var color = this.layer.options['debugOutline'];
         ctx.save();
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.strokeWidth = 10;
-        ctx.font = '15px monospace';
+        ctx.font = '20px monospace';
 
         var _point = new Point(x, y);
 
@@ -29575,7 +30079,7 @@
           width: w,
           height: h
         }, 1, 0);
-        Canvas.fillText(ctx, 'x:' + xyz[length - 2] + ', y:' + xyz[length - 3] + ', z:' + xyz[length - 1], _point._add(10, 20), color);
+        Canvas.fillText(ctx, this.getDebugInfo(tileId), _point._add(10, 20), color);
         Canvas.drawCross(ctx, x + w / 2, y + h / 2, 2, color);
         ctx.restore();
       }
@@ -29589,6 +30093,12 @@
       }
 
       this.setCanvasUpdated();
+    };
+
+    _proto.getDebugInfo = function getDebugInfo(tileId) {
+      var xyz = tileId.split('_');
+      var length = xyz.length;
+      return 'x:' + xyz[length - 2] + ', y:' + xyz[length - 3] + ', z:' + xyz[length - 1];
     };
 
     _proto._findChildTiles = function _findChildTiles(info) {
@@ -29635,10 +30145,7 @@
 
       for (var i = sx; i < ex; i++) {
         for (var ii = sy; ii < ey; ii++) {
-          id = layer._getTileId({
-            idx: i,
-            idy: ii
-          }, childZoom + zoomOffset, layerId);
+          id = layer._getTileId(i, ii, childZoom + zoomOffset, layerId);
 
           if (this.tileCache.has(id)) {
             tile = this.tileCache.getAndRemove(id);
@@ -29672,7 +30179,7 @@
 
         var tileIndex = layer._getTileConfig().getTileIndex(prj, res);
 
-        var id = layer._getTileId(tileIndex, z + zoomOffset, info.layer);
+        var id = layer._getTileId(tileIndex.x, tileIndex.y, z + zoomOffset, info.layer);
 
         if (this.tileCache.has(id)) {
           var tile = this.tileCache.getAndRemove(id);
@@ -29702,6 +30209,7 @@
               image = _tilesLoading$tileId.image,
               info = _tilesLoading$tileId.info;
           this.abortTileLoading(image, info);
+          console.log('_getCachedTile');
           delete tilesLoading[tileId];
         }
       } else {
@@ -29886,8 +30394,8 @@
       }
 
       var scale = tileInfo._glScale = tileInfo._glScale || map.getGLScale(tileInfo.z),
-          w = tileInfo.size[0] * scale,
-          h = tileInfo.size[1] * scale;
+          w = tileInfo.size[0],
+          h = tileInfo.size[1];
 
       if (tileInfo.cache !== false) {
         this._bindGLBuffer(tileImage, w, h);
@@ -29903,7 +30411,13 @@
       var x = point.x * scale,
           y = point.y * scale;
       var opacity = this.getTileOpacity(tileImage);
-      this.drawGLImage(tileImage, x, y, w, h, opacity);
+      var debugInfo = null;
+
+      if (this.layer.options['debug']) {
+        debugInfo = this.getDebugInfo(tileInfo.id);
+      }
+
+      this.drawGLImage(tileImage, x, y, w, h, scale, opacity, debugInfo);
 
       if (opacity < 1) {
         this.setToRedraw();
@@ -30012,6 +30526,8 @@
       if (tile && tile.image) {
         this.disposeImage(tile.image);
       }
+
+      delete tile.image;
     };
 
     _proto.onRemove = function onRemove() {
@@ -30937,7 +31453,7 @@
       for (var i = layers.length - 1; i >= 0; i--) {
         var layer = layers[i];
 
-        if (layer.isEmpty && layer.isEmpty()) {
+        if (!layer.options['hitDetect'] || layer.isEmpty && layer.isEmpty()) {
           continue;
         }
 
@@ -31194,6 +31710,29 @@
       }
     };
 
+    _proto._drawContainerExtent = function _drawContainerExtent() {
+      var cascadePitches = this.map.options.cascadePitches;
+
+      var h30 = this.map.height - this.map._getVisualHeight(cascadePitches[0]);
+
+      var h60 = this.map.height - this.map._getVisualHeight(cascadePitches[1]);
+
+      var extent = this.map.getContainerExtent();
+      var ctx = this.context;
+      ctx.beginPath();
+      ctx.moveTo(0, extent.ymin);
+      ctx.lineTo(extent.xmax, extent.ymin);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, h30);
+      ctx.lineTo(extent.xmax, h30);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, h60);
+      ctx.lineTo(extent.xmax, h60);
+      ctx.stroke();
+    };
+
     _proto._drawFog = function _drawFog() {
       var map = this.map;
 
@@ -31368,7 +31907,7 @@
 
   Map$1.registerRenderer('canvas', MapCanvasRenderer);
   Map$1.mergeOptions({
-    'fog': true,
+    'fog': false,
     'fogColor': [233, 233, 233]
   });
 
@@ -31900,6 +32439,6 @@
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
-  typeof console !== 'undefined' && console.log && console.log('maptalks v0.46.0');
+  typeof console !== 'undefined' && console.log && console.log('maptalks v0.47.0');
 
 })));
